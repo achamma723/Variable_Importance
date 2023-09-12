@@ -1,8 +1,0 @@
-tmp*
-*.pth
-*.pyx
-*.html
-*.c
-*.cpython*
-*build
-test*
