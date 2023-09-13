@@ -2,7 +2,7 @@
 * The required packages are installed as a new conda environment including both R and Python dependencies with the following command:
 
 ```
-conda env create -f requirements_conda.yml
+conda create --name envbase --file requirements_conda.yml
 ```
 
 * The ```missing R packages``` can be found in the "requirements_r.rda" file and can be downloaded using the following commands:
@@ -10,8 +10,8 @@ conda env create -f requirements_conda.yml
 ```
 load("requirements_r.rda")
 
-for (count in 1:length(installedpackages)) {
-    install.packages(installedpackages[count])
+for (count in 1:length(installed_packages)) {
+    install.packages(installed_packages[count])
 }
 ```
 
