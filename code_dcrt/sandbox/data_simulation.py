@@ -9,12 +9,27 @@ from sklearn.preprocessing import StandardScaler
 from .sampling_covariance_fast import sample_covariance_group
 
 
-def generate_data(n, p, n_groups=None, mean=0.0, snr=3.0, rho=0.25, gamma=0.1,
-                  smooth_X=0.0, sparsity=0.06, effect=1.0, binary=False,
-                  noise_mag=1.0, use_noise_magnitude=False,
-                  covariance='toeplitz', decom_method='cholesky',
-                  fixed_non_null=False, consecutive=False, verbose=False,
-                  seed=None):
+def generate_data(
+    n,
+    p,
+    n_groups=None,
+    mean=0.0,
+    snr=3.0,
+    rho=0.25,
+    gamma=0.1,
+    smooth_X=0.0,
+    sparsity=0.06,
+    effect=1.0,
+    binary=False,
+    noise_mag=1.0,
+    use_noise_magnitude=False,
+    covariance="toeplitz",
+    decom_method="cholesky",
+    fixed_non_null=False,
+    consecutive=False,
+    verbose=False,
+    seed=None,
+):
     """Function to simulate data follow
     <https://web.stanford.edu/group/candes/knockoffs/software/knockoff/tutorial-4-r.html>
     with modification of adding Signal-to-Noise ratio
@@ -32,7 +47,7 @@ def generate_data(n, p, n_groups=None, mean=0.0, snr=3.0, rho=0.25, gamma=0.1,
         correlation parameter
     effect : float, optional
         signal magnitude, value of non-null coefficients
-    decom_method : string, optional 
+    decom_method : string, optional
         Decomposition method for covariance matrix, mostly for speedup reason
         as cholesky is very fast compare to default svd choice of
         numpy.random.multivariate_normal default : cholesky.
@@ -58,33 +73,46 @@ def generate_data(n, p, n_groups=None, mean=0.0, snr=3.0, rho=0.25, gamma=0.1,
 
     if n_groups is None:
         beta_true, non_zero = _generate_true_signal(
-            p, sparsity=sparsity, effect=effect, consecutive=consecutive,
-            fixed_non_null=fixed_non_null, random_state=seed)
-        Sigma = _generate_covariance(p, rho=rho, group_label=None,
-                                     gamma=None, structure=covariance)
+            p,
+            sparsity=sparsity,
+            effect=effect,
+            consecutive=consecutive,
+            fixed_non_null=fixed_non_null,
+            random_state=seed,
+        )
+        Sigma = _generate_covariance(
+            p, rho=rho, group_label=None, gamma=None, structure=covariance
+        )
     else:
         n_groups = int(n_groups)
         beta_true, non_zero_group, group_label = _generate_true_signal(
-            p, n_groups=n_groups, sparsity=sparsity, effect=effect,
-            consecutive=consecutive, fixed_non_null=fixed_non_null,
-            random_state=seed)
+            p,
+            n_groups=n_groups,
+            sparsity=sparsity,
+            effect=effect,
+            consecutive=consecutive,
+            fixed_non_null=fixed_non_null,
+            random_state=seed,
+        )
         # Generate the variables from a multivariate normal distribution
-        Sigma = _generate_covariance(p, rho=rho, group_label=group_label,
-                                     gamma=gamma, structure=covariance)
+        Sigma = _generate_covariance(
+            p, rho=rho, group_label=group_label, gamma=gamma, structure=covariance
+        )
     # Set seed generator
     rng = np.random.RandomState(seed)
-    if decom_method == 'svd':
+    if decom_method == "svd":
         X = rng.multivariate_normal(mu, Sigma, size=(n))
-    elif decom_method == 'cholesky':
+    elif decom_method == "cholesky":
         l = cholesky(Sigma)
         X = np.tile(mu, reps=(n, 1)) + np.dot(rng.randn(n, p), l)
     else:
-        raise ValueError('Decomposition method not supported')
+        raise ValueError("Decomposition method not supported")
 
     # Gaussian smoothing for data matrix
     if isinstance(smooth_X, (float, int)):
-        X = np.apply_along_axis(ndimage.filters.gaussian_filter, axis=1,
-                                arr=X, **{'sigma': smooth_X})
+        X = np.apply_along_axis(
+            ndimage.filters.gaussian_filter, axis=1, arr=X, **{"sigma": smooth_X}
+        )
 
     # Generate the response from a linear model
     prod_temp = np.dot(X, beta_true)
@@ -111,9 +139,15 @@ def _sigmoid(x):
     return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
 
 
-def _generate_true_signal(p, n_groups=None, sparsity=0.06, effect=1.0,
-                          consecutive=False, fixed_non_null=False,
-                          random_state=None):
+def _generate_true_signal(
+    p,
+    n_groups=None,
+    sparsity=0.06,
+    effect=1.0,
+    consecutive=False,
+    fixed_non_null=False,
+    random_state=None,
+):
     k = int(sparsity * p)
     rng = np.random.RandomState(random_state)
 
@@ -141,19 +175,18 @@ def _generate_true_signal(p, n_groups=None, sparsity=0.06, effect=1.0,
     p_per_group = p // n_groups
     group_label = np.repeat(np.arange(n_groups), p_per_group)
     non_zero_group = rng_non_zero.choice(
-        n_groups, size=round(n_groups * sparsity), replace=False)
-    non_zero_group_sign = rng_non_zero.choice(
-        [-1, 1], size=round(n_groups * sparsity))
+        n_groups, size=round(n_groups * sparsity), replace=False
+    )
+    non_zero_group_sign = rng_non_zero.choice([-1, 1], size=round(n_groups * sparsity))
     # all non-zero variables inside a group are equal
     beta_true = np.zeros(p)
     for i in range(len(non_zero_group)):
-        beta_true[group_label == non_zero_group[i]] =\
-            non_zero_group_sign[i] * effect
+        beta_true[group_label == non_zero_group[i]] = non_zero_group_sign[i] * effect
 
     return beta_true, non_zero_group, group_label
 
 
-def _generate_covariance(p, rho, group_label, gamma=0.1, structure='toeplitz'):
+def _generate_covariance(p, rho, group_label, gamma=0.1, structure="toeplitz"):
     if structure == "toeplitz":
         # Toeplitz covariance matrix
         Sigma = toeplitz(rho ** np.arange(0, p))
@@ -166,7 +199,7 @@ def _generate_covariance(p, rho, group_label, gamma=0.1, structure='toeplitz'):
         Sigma = np.full((p, p), rho)
         np.fill_diagonal(Sigma, 1.0)
     else:
-        raise ValueError('Wrong covariance type.')
+        raise ValueError("Wrong covariance type.")
 
     return Sigma
 
@@ -187,16 +220,28 @@ def generate_w(shape, roi_size, effect=1.0):
     w[-roi_size:, -roi_size:, 0:roi_size, 1] = effect
     w[0:roi_size, -roi_size:, -roi_size:, 2] = -effect
     w[-roi_size:, 0:roi_size, -roi_size:, 3] = effect
-    w[(shape[0] - roi_size) // 2:(shape[0] + roi_size) // 2,
-      (shape[1] - roi_size) // 2:(shape[1] + roi_size) // 2,
-      (shape[2] - roi_size) // 2:(shape[2] + roi_size) // 2, 4] = effect
+    w[
+        (shape[0] - roi_size) // 2 : (shape[0] + roi_size) // 2,
+        (shape[1] - roi_size) // 2 : (shape[1] + roi_size) // 2,
+        (shape[2] - roi_size) // 2 : (shape[2] + roi_size) // 2,
+        4,
+    ] = effect
 
     return w
 
 
-def multivariate_simulation(n_samples=200, shape=(12, 12, 12), effect=1.0,
-                            snr=3.0, roi_size=2, binarize='binomial',
-                            smooth_X=1.0, rho=0.0, eta=0.0, seed=0):
+def multivariate_simulation(
+    n_samples=200,
+    shape=(12, 12, 12),
+    effect=1.0,
+    snr=3.0,
+    roi_size=2,
+    binarize="binomial",
+    smooth_X=1.0,
+    rho=0.0,
+    eta=0.0,
+    seed=0,
+):
     """Generate the 3D data with binary response
 
     Parameters
@@ -230,8 +275,11 @@ def multivariate_simulation(n_samples=200, shape=(12, 12, 12), effect=1.0,
     X_rho = rng.normal(size=n_samples)
     n_samples, n_features = X.shape
     X_eta = rng.normal(size=(n_samples, n_features))
-    X = np.sqrt(rho) * X_rho[:, None] + np.sqrt(eta) * \
-        X_eta + np.sqrt(1 - rho - eta) * X
+    X = (
+        np.sqrt(rho) * X_rho[:, None]
+        + np.sqrt(eta) * X_eta
+        + np.sqrt(1 - rho - eta) * X
+    )
     X_new = StandardScaler(with_mean=False).fit_transform(X)
 
     prod = X_new.dot(beta)
@@ -242,10 +290,10 @@ def multivariate_simulation(n_samples=200, shape=(12, 12, 12), effect=1.0,
 
     if binarize is None:
         y = prod_temp + epsilon
-    elif binarize == 'binomial':
+    elif binarize == "binomial":
         pr = _sigmoid(prod_temp + epsilon)
         y = rng.binomial(1, pr)  # binarize y
-    elif binarize == 'sign':
+    elif binarize == "sign":
         y = np.sign(prod_temp + epsilon)
         y[y == -1] = 0
 

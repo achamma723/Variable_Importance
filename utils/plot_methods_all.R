@@ -58,29 +58,6 @@ compute_power <- function(obj,
 }
 
 
-compute_fdr <- function(obj,
-                        nb_relevant = 20,
-                        upper_bound = 0.1) {
-  thresh <- Inf
-  if (grepl("Knockoff_deep_", obj$method, fixed = TRUE)) {
-    test_score <- obj$importance
-    t_mesh <- sort(abs(test_score[test_score != 0]))
-    for (t in t_mesh) {
-      false_pos <- sum(test_score <= -t)
-      selected <- sum(test_score >= t)
-      if (((1 + false_pos) / max(selected, 1)) <= upper_bound) {
-        thresh <- t
-        break
-      }
-    }
-    selected_set <- which(test_score >= thresh)
-    fdp <- length(intersect(selected_set,
-      c(21:50))) / (max(length(selected_set), 1))
-    return(fdp)
-  }
-}
-
-
 compute_pred <- function(obj,
                          nb_relevant = 20,
                          upper_bound = 0.05) {
@@ -88,95 +65,6 @@ compute_pred <- function(obj,
     return(NULL)
   }
   return (obj$score[1])
-}
-
-
-plot_func <- function(obj,
-                      not_time = TRUE,
-                      output_file = "default",
-                      yintercept = 0.5,
-                      title = "AUC",
-                      list_func = NULL) {
-  obj$method <- factor(obj$method,
-    levels = list_func)
-
-  if (not_time) {
-    obj$prob_data <- factor(obj$prob_data,
-      levels = c(
-        "classification",
-        "regression",
-        "regression_relu",
-        "regression_combine",
-        "regression_product"
-      )
-    )
-    obj$method <- factor(obj$method,
-      levels = c(
-        "Marg",
-        "Knockoff_lasso",
-        "Knockoff_bart",
-        "Knockoff_deep",
-        "Shap",
-        "SAGE",
-        "MDI",
-        "Strobl",
-        "d0CRT",
-        "BART",
-        "lazyvi",
-        "Permfit-DNN",
-        "CPI-DNN",
-        "CPI-RF",
-        "vimp"
-      )
-    )
-    p <- ggplot(
-      data = data.frame(obj),
-      aes(
-        x = method,
-        y = V1      
-        )
-    ) +
-      geom_boxplot(
-        alpha = 0.4, aes(
-          fill = prob_data,
-          color = prob_data
-        ),
-        outlier.size = 3
-      ) +
-      guides(color = "none") +
-      rotate() +
-      ggtitle(title)
-    saveRDS(p, file.path(
-      "results/plot_all",
-      paste0(
-        output_file, ".rds"
-      )
-    ))
-  }
-
-  else {
-    p <- ggplot(
-      data = data.frame(obj),
-      aes(
-        x = method,
-        y = V1
-      )
-    ) +
-      geom_bar(
-        stat = "identity",
-        width = 0.4
-      ) +
-      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-        labels = trans_format("log10", math_format(10^.x))) +
-      labs(y = "Time") +
-      xlab("Method")
-    saveRDS(p, file.path(
-      "results/plot_all",
-      paste0(
-        output_file, ".rds"
-      )
-    ))
-  }
 }
 
 
@@ -209,16 +97,6 @@ plot_time <- function(source_file,
         output_file, ".csv"
       )
     ))
-  print("Done")
-  stop()
-  res[,
-    plot_func(c(.BY, .SD),
-      FALSE,
-      output_file = output_file,
-      list_func = list_func
-    ),
-    by = .(n_samples)
-  ]
 }
 
 
@@ -259,22 +137,4 @@ plot_method <- function(source_file,
         output_file, ".csv"
       )
     ))
-  print("Done")
-  stop()
-
-  res[,
-    plot_func(
-      c(.BY, .SD),
-      TRUE,
-      output_file,
-      yintercept,
-      title,
-      list_func
-    ),
-    by = .(
-      n_samples
-    )
-  ]
-
-  graphics.off()
 }

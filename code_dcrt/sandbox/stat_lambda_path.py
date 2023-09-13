@@ -6,18 +6,16 @@ from sklearn.linear_model import lasso_path
 from sklearn.utils.validation import check_memory
 
 
-def stat_lambda_path(X, X_tilde, y, eps=5e-3, n_alphas=1000,
-                     fit_intercept=False, memory=None):
-
+def stat_lambda_path(
+    X, X_tilde, y, eps=5e-3, n_alphas=1000, fit_intercept=False, memory=None
+):
     memory = check_memory(memory)
 
     X_ko = np.column_stack([X, X_tilde])
-    lambdas, coefs, _ = memory.cache(lasso_path)(X_ko, y, eps=eps,
-                                                 n_alphas=n_alphas)
+    lambdas, coefs, _ = memory.cache(lasso_path)(X_ko, y, eps=eps, n_alphas=n_alphas)
 
     # test_scores = np.apply_along_axis(_sup_lambda, 1, coefs, lambdas)
-    test_scores = [_sup_lambda(coefs[i, :], lambdas)
-                   for i in range(X_ko.shape[1])]
+    test_scores = [_sup_lambda(coefs[i, :], lambdas) for i in range(X_ko.shape[1])]
 
     return np.array(test_scores)
 
@@ -38,7 +36,6 @@ def _sup_lambda(coef_path, lambda_path):
 
 
 def _fdp_hat_lambda(lbd, test_score):
-
     n_features = len(test_score) // 2
     h = test_score[:n_features]
     k0 = test_score[n_features:]

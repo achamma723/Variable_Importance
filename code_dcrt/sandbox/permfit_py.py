@@ -1,21 +1,35 @@
 import os
-import torch
-from sklearn.datasets import make_regression
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 from scipy.stats import norm
-from sklearn.model_selection import KFold
+from sklearn.datasets import make_regression
+from sklearn.model_selection import KFold, train_test_split
+
 from .deep_model import _ensemble_dnnet
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 
 
-def permfit(X_train, y_train, X_test=None, y_test=None, prob_type='regression', k_fold=0,
-            split_perc=0.2, random_state=2021, n_ensemble=10, batch_size=1024, n_perm=100,
-            res=True, save_file="Best_model_knock", verbose=1):
-    """ Run the PermFit implementation
+def permfit(
+    X_train,
+    y_train,
+    X_test=None,
+    y_test=None,
+    prob_type="regression",
+    k_fold=0,
+    split_perc=0.2,
+    random_state=2021,
+    n_ensemble=10,
+    batch_size=1024,
+    n_perm=100,
+    res=True,
+    save_file="Best_model_knock",
+    verbose=1,
+):
+    """Run the PermFit implementation
 
-        this function 
+        this function
     Args:
         X_train (numpy.array): The matrix of predictors to train/validate
         y_train (numpy.array): The response vector to train/validate
@@ -53,26 +67,33 @@ def permfit(X_train, y_train, X_test=None, y_test=None, prob_type='regression', 
     n, _, p = X_train.shape
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if prob_type == 'classification':
+    if prob_type == "classification":
         # Converting target values to corresponding integer values
         ind_unique = np.unique(y_train)
         dict_target = dict(zip(ind_unique, range(len(ind_unique))))
-        y_train = np.array([dict_target[el]
-                            for el in list(y_train)]).reshape(-1, 1)
+        y_train = np.array([dict_target[el] for el in list(y_train)]).reshape(-1, 1)
     else:
         y_train = np.array(y_train).reshape(-1, 1)
     # No cross validation, dividing the samples into train/validate portions
     if k_fold == 0:
         if X_test is None:
-            X_train, X_test, y_train, y_test = train_test_split(X_train, y_train,
-                                                                test_size=split_perc)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=split_perc
+            )
         else:
             y_test = np.array(y_test).reshape(-1, 1)
-        result_gradients = _ensemble_dnnet(X_train, y_train, X_test, y_test,
-                                           n_ensemble=n_ensemble, prob_type=prob_type,
-                                           save_file=save_file, verbose=verbose)
+        result_gradients = _ensemble_dnnet(
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            n_ensemble=n_ensemble,
+            prob_type=prob_type,
+            save_file=save_file,
+            verbose=verbose,
+        )
 
-        os.remove(save_file + '.pth')
+        os.remove(save_file + ".pth")
         print("Done Gradients List!")
 
         return result_gradients
@@ -88,16 +109,27 @@ def permfit(X_train, y_train, X_test=None, y_test=None, prob_type='regression', 
             valid_ind.append((train_index, test_index))
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
-            current_score = permfit(X_train, y_train, X_test, y_test, prob_type,
-                                    k_fold=0, split_perc=split_perc, random_state=random_state,
-                                    n_ensemble=n_ensemble, batch_size=batch_size, n_perm=n_perm,
-                                    res=False)
+            current_score = permfit(
+                X_train,
+                y_train,
+                X_test,
+                y_test,
+                prob_type,
+                k_fold=0,
+                split_perc=split_perc,
+                random_state=random_state,
+                n_ensemble=n_ensemble,
+                batch_size=batch_size,
+                n_perm=n_perm,
+                res=False,
+            )
             p2_score[:, test_index, :] = current_score
 
         results = {}
-        results['importance'] = np.mean(np.mean(p2_score, axis=0), axis=0)
-        results['std'] = np.std(np.mean(p2_score, axis=0),
-                                axis=0) / np.sqrt(len(y_test)-1)
-        results['pval'] = 1 - norm.cdf(results['importance'] / results['std'])
-        results['validation_ind'] = valid_ind
+        results["importance"] = np.mean(np.mean(p2_score, axis=0), axis=0)
+        results["std"] = np.std(np.mean(p2_score, axis=0), axis=0) / np.sqrt(
+            len(y_test) - 1
+        )
+        results["pval"] = 1 - norm.cdf(results["importance"] / results["std"])
+        results["validation_ind"] = valid_ind
         return results

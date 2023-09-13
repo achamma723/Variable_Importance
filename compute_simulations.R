@@ -7,48 +7,22 @@ suppressMessages({
   if (!DEBUG) {
     require(snowfall)
     sfInit(parallel = TRUE, cpus = N_CPU, type = "SOCK")
-    sfLibrary(snowfall)
-    sfLibrary(doParallel)
-    sfLibrary(grf)
+    sfLibrary(cpi)
+    sfLibrary(gtools)
+    sfLibrary(mlr3learners)
     sfLibrary(party)
     sfLibrary(permimp)
-    sfLibrary(ranger)
-    sfLibrary(randomForest)
     sfLibrary(reticulate)
-    sfLibrary(vita)
-    sfLibrary(gtools)
-    sfLibrary(deepTL)
-    sfLibrary(cpi)
-    sfLibrary(MASS)
-    sfLibrary(mlr3)
-    sfLibrary(mlr3learners)
-    sfLibrary(simstudy)
-    sfLibrary(SuperLearner)
-    sfLibrary(vimp)
-    sfLibrary(glmnet)
-    sfLibrary(xgboost)
+    sfLibrary(snowfall)
     sfSource("data/data_gen.R")
     sfSource("utils/compute_methods.R")
   } else {
-    library(doParallel)
-    library(grf)
+    library(cpi)
+    library(mlr3learners)
+    library(gtools)
     library("party", quietly = TRUE)
     library(permimp)
-    library(ranger)
-    library(randomForest)
     library(reticulate)
-    library(vita)
-    library(gtools)
-    library(deepTL)
-    library(cpi)
-    library(MASS)
-    library(mlr3)
-    library(mlr3learners)
-    library(simstudy)
-    library(SuperLearner)
-    library(vimp)
-    library(glmnet)
-    library(xgboost)
     source("data/data_gen.R")
     source("utils/compute_methods.R")
   }
@@ -62,31 +36,21 @@ if (!DEBUG) {
 ##### Running Methods #####
 
 methods <- c(
-  # "marginal",
-  # "knockoff",
-  # "shap",
-  # 'sage'
-  # "mdi"
-  # "d0crt"
-  # "bart"
-  # "dnn",
-  # "dnn_py"
-  # "dnn_py_cond"
-  # "rf_cond",
-  # "gpfi",
-  # "gopfi",
-  # "dgi",
-  # "goi",
-  # "vimp"
-  # "lazy"
-  # "cpi_knockoff",
-  "loco"
-  # "ale",
-  # "strobl"
-  # "janitza",
-  # "altmann",
-  # "bartpy",
-  # "grf"
+  "marginal",
+  "d0crt",
+  "permfit",
+  "cpi",
+  "cpi_rf",
+  "lazy",
+  "cpi_knockoff",
+  "loco",
+  "strobl",
+  # "loco_dnn"
+  "knockoff",
+  "shap",
+  "sage",
+  "mdi",
+  "bart"
 )
 list_models <- paste0("Best_model_1_", N_SIMULATIONS)
 
@@ -94,28 +58,17 @@ list_models <- paste0("Best_model_1_", N_SIMULATIONS)
 
 param_grid <- expand.grid(
   # File, if given, for the real data
-  # file = "data/ukbb_data",
   file = "",
   # The file to regenerate samples with same covariance, if given
-  # sigma = "data/ukbb_data_age_no_hot_encoding",
   sigma = "",
   # The number of samples
-  n_samples = ifelse(!DEBUG, 1000L, 1000L), #8300 #1000
-  # n_samples = `if`(!DEBUG, seq(100, 1000, by = 100), 10L),
+  n_samples = ifelse(!DEBUG, 100L, 100L),
+  # n_samples = `if`(!DEBUG, seq(100, 100, by = 100), 10),
+
   # The number of covariates
-  n_features = ifelse(!DEBUG, 100L, 50L), #2300 #1500
-  # Whether to use or not grouped variables
-  group_bool = c(
-    # TRUE
-    FALSE
-  ),
-  # Whether to use the stacking method
-  group_stack = c(
-    # TRUE,
-    FALSE
-  ),
+  n_features = ifelse(!DEBUG, 5L, 5L),
   # The number of relevant covariates
-  n_signal = ifelse(!DEBUG, 20L, 2L), #115 #75
+  n_signal = ifelse(!DEBUG, 2L, 2L),
   # The mean for the simulation
   mean = c(0),
   # The correlation coefficient
@@ -125,18 +78,11 @@ param_grid <- expand.grid(
     # 0.5,
     0.8
   ),
-  # The correlation between the groups if group-based simulations
-  rho_group = c(
-    0
-    # 0.2,
-    # 0.5,
-    # 0.8
-  ),
   # Number of blocks
-  n_blocks = ifelse(!DEBUG, 10L, 10L),
+  n_blocks = ifelse(!DEBUG, 1L, 1L),
   # Type of simulation
   # It can be ["blocks_toeplitz", "blocks_fixed",
-  # "simple_toeplitz", "simple_fixed", "blocks_group"]
+  # "simple_toeplitz", "simple_fixed"]
   type_sim = c("blocks_fixed"),
   # Signal-to-Noise ratio
   snr = c(4),
@@ -148,7 +94,6 @@ param_grid <- expand.grid(
     # "regression_product",
     # "regression_relu"
     # "regression_perm"
-    # "regression_group_sim_1"
   ),
   # The running methods implemented
   method = methods,
@@ -159,60 +104,35 @@ param_grid <- expand.grid(
   ),
   # Refit parameter for the d0crt method
   refit = FALSE,
-  # The holdout importance's implementation (ranger or original)
-  with_ranger = FALSE,
-  # The holdout importance measure to use (impurity corrected vs MDA)
-  with_impurity = FALSE,
-  # The holdout importance in python
-  with_python = FALSE,
   # The statistic to use with the knockoff method
   stat_knockoff = c(
     # "l1_regu_path",
-    "lasso_cv"
-    # "bart"
-    # "deep"
+    "lasso_cv",
+    "bart",
+    "deep"
   ),
-  # Type of forest for grf package
-  type_forest = c(
-    "regression",
-    "quantile"
-  ),
-  # Depth for the Random Forest (Conditional Sampling)
-  # depth = c(1:10)
-  depth = c(2L),
   # Number of permutations/samples for the DNN algos
   n_perm = c(100L),
   # Number of cpus for the multiprocessing unit
-  n_jobs = c(1L),
-  # Type of backend to use with the multiprocessing unit
-  backend = c("multiprocessing"),
-  # Permutation or random sampling for residuals (CPI-DNN)
-  no_perm = c( TRUE
-               # FALSE
-  )
+  n_jobs = c(1L)
 )
 
 param_grid <- param_grid[
   ((!param_grid$scaled_statistics) & # if scaled stats
      (param_grid$stat_knockoff %in% c(param_grid$stat_knockoff[[1]])) & # and defaults
      (!param_grid$refit) & # and refit
-     (param_grid$type_forest == "regression") & # and type_forest
      (!param_grid$method %in% c(
-       "d0crt", # but not ...
-       "knockoff",
-       "grf"
+       "d0crt",
+       "knockoff"
      ))) |
     ((!param_grid$scaled_statistics) & # or scaled
        (!param_grid$refit) &
-       (param_grid$type_forest == "regression") &
        (param_grid$method == "knockoff")) |
     ((param_grid$stat_knockoff %in% c(param_grid$stat_knockoff[[1]])) &
-       (param_grid$type_forest == "regression") &
        (param_grid$method == "d0crt")) |
     ((!param_grid$scaled_statistics) &
        (!param_grid$refit) &
-       (param_grid$stat_knockoff %in% c(param_grid$stat_knockoff[[1]])) &
-       (param_grid$method == "grf")),
+       (param_grid$stat_knockoff %in% c(param_grid$stat_knockoff[[1]]))),
 ]
 
 param_grid$index_i <- 1:nrow(param_grid)
@@ -231,25 +151,16 @@ compute_method <- function(method,
   cat(sprintf("%s: %i \n", method, index_i))
   
   compute_fun <- function(seed, ...) {
-    # sfCat(paste("Iteration: ", seed), sep="\n")
     sim_data <- generate_data(
       seed,
       ...
     )
     print("Done loading data!")
     
-    # Prepare the list of grouped labels
-    if (list(...)$group_bool) {
-      list_grps <- generate_grps(list(...)$p, list(...)$n_blocks)
-    }
-    else
-      list_grps <- list()
-    
     timing <- system.time(
       out <- switch(as.character(method),
                     marginal = compute_marginal(
                       sim_data,
-                      list_grps = list_grps,
                       ...
                     ),
                     ale = compute_ale(sim_data,
@@ -292,91 +203,41 @@ compute_method <- function(method,
                                           verbose = TRUE,
                                           ...
                     ),
-                    janitza = compute_janitza(sim_data,
-                                              cv = 2L,
-                                              ncores = 3L,
-                                              ...
-                    ),
-                    altmann = compute_altmann(sim_data,
-                                              nper = 100L,
-                                              ...
-                    ),
-                    dnn = compute_dnn(
-                      sim_data,
-                      ...
-                    ),
-                    grf = compute_grf(
-                      sim_data,
-                      ...
-                    ),
-                    bartpy = compute_bart_py(
-                      sim_data,
-                      ...
-                    ),
-                    dnn_py = compute_dnn_py(
+                    permfit = compute_permfit(
                       sim_data,
                       seed,
                       nominal = if (list(...)$sigma != "") read.csv(paste0(list(...)$sigma, "_nominal_columns.csv"))$x else "",
-                      list_grps = list_grps,
                       ...
                     ),
-                    dnn_py_cond = compute_dnn_py_cond(
+                    cpi = compute_cpi(
                       sim_data,
                       seed,
                       nominal = if (list(...)$sigma != "") read.csv(paste0(list(...)$sigma, "_nominal_columns.csv"))$x else "",
-                      list_grps = list_grps,
                       ...
                     ),
-                    rf_cond = compute_rf_cond(
+                    cpi_rf = compute_cpi_rf(
                       sim_data,
                       seed,
                       nominal = if (list(...)$sigma != "") read.csv(paste0(list(...)$sigma, "_nominal_columns.csv"))$x else "",
-                      list_grps = list_grps,
-                      ...
-                    ),
-                    gpfi = compute_grps(
-                      sim_data,
-                      seed,
-                      list_grps = list_grps,
-                      func = "gpfi",
-                      ...
-                    ),
-                    gopfi = compute_grps(
-                      sim_data,
-                      seed,
-                      list_grps = list_grps,
-                      func = "gopfi",
-                      ...
-                    ),
-                    dgi = compute_grps(
-                      sim_data,
-                      seed,
-                      list_grps = list_grps,
-                      func = "dgi",
-                      ...
-                    ),
-                    goi = compute_grps(
-                      sim_data,
-                      seed,
-                      list_grps = list_grps,
-                      func = "goi",
-                      ...
-                    ),
-                    vimp = compute_vimp(
-                      sim_data,
-                      seed,
                       ...
                     ),
                     lazy = compute_lazy(
                       sim_data,
                       ...
                     ),
-                    cpi_knockoff = compute_cpi(
+                    cpi_knockoff = compute_cpi_knockoff(
                       sim_data,
                       ...
                     ),
                     loco = compute_loco(
                       sim_data,
+                      dnn = FALSE,
+                      ntree = 100L,
+                      ...
+                    ),
+                    loco_dnn = compute_loco(
+                      sim_data,
+                      dnn=TRUE,
                       ntree = 100L,
                       ...
                     )
@@ -388,9 +249,6 @@ compute_method <- function(method,
     out$correlation_group <- list(...)$rho_group
     out$n_samples <- list(...)$n
     out$prob_data <- list(...)$prob_sim_data
-    out$group_based <- list(...)$group_bool
-    out$group_stack <- list(...)$group_stack
-    # sfCat(paste("Done Iteration: ", seed), sep="\n")
     return(out)
   }
   sim_range <- n_simulations
@@ -446,12 +304,9 @@ results <-
           file = file,
           n = n_samples,
           p = n_features,
-          group_bool = group_bool,
-          group_stack = group_stack,
           n_signal = n_signal,
           mean = mean,
           rho = rho,
-          rho_group = rho_group,
           sigma = sigma,
           n_blocks = n_blocks,
           type_sim = type_sim,
@@ -460,31 +315,23 @@ results <-
           index_i = index_i,
           n_simulations = N_SIMULATIONS,
           stat_knockoff = stat_knockoff,
-          with_ranger = with_ranger,
-          with_impurity = with_impurity,
-          with_python = with_python,
           refit = refit,
           scaled_statistics = scaled_statistics,
-          type_forest = type_forest,
           prob_sim_data = prob_sim_data,
           prob_type = strsplit(as.character(prob_sim_data), "_")[[1]][1],
-          depth = depth,
           n_perm = n_perm,
-          n_jobs = n_jobs,
-          backend = backend,
-          no_perm = no_perm
+          n_jobs = n_jobs
         )
       )
     }
   )
 
 results <- rbindlist(results, fill=TRUE)
-print(results)
-stop()
-out_fname <- "simulation_results_blocks_100_cpiknockoff_loco_cpiRF_100.csv"
+
+out_fname <- paste0(getwd(), "/results/results_csv/", "simulation_results_blocks_100_allMethods.csv")
 
 if (DEBUG) {
-  out_fname <- gsub(".csv", "-debug.csv", out_fname)
+  out_fname <- gsub("\\.csv", "-debug.csv", out_fname)
 }
 
 fwrite(results, out_fname)

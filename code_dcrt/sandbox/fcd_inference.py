@@ -10,8 +10,9 @@ from .desparsified_lasso import desparsified_lasso
 from .utils import _reid, pval_from_zscore
 
 
-def dl_fdr(X, y, fdr=0.1, one_sided=False, tol=1e-4, method="lasso", c=0.01,
-           verbose=False):
+def dl_fdr(
+    X, y, fdr=0.1, one_sided=False, tol=1e-4, method="lasso", c=0.01, verbose=False
+):
     """FDR controlling with Debiased Lasso following Javanmard
 
     Parameters
@@ -36,10 +37,9 @@ def dl_fdr(X, y, fdr=0.1, one_sided=False, tol=1e-4, method="lasso", c=0.01,
             Only used if method="lasso". Then alpha = c * alpha_max.
         standardized : bool, optional
             Whether to center the data or not
-        """
+    """
 
-    _, zscore, pval = desparsified_lasso(X, y, tol=tol, method=method,
-                                         c=c)
+    _, zscore, pval = desparsified_lasso(X, y, tol=tol, method=method, c=c)
     threshold = _dl_fdr_threshold(zscore, fdr=fdr, one_sided=one_sided)
     selected = np.where(np.abs(zscore) >= threshold)[0]
 
@@ -50,9 +50,7 @@ def dl_fdr(X, y, fdr=0.1, one_sided=False, tol=1e-4, method="lasso", c=0.01,
 
 
 def _dl_fdr_threshold(fcd_statistic, fdr=0.1, one_sided=False):
-    """
-
-    """
+    """ """
     n_features = len(fcd_statistic)
     t_p = np.sqrt(2 * np.log(n_features) - 2 * np.log(np.log(n_features)))
     abs_fcd_statistic = np.sort(np.abs(fcd_statistic))
@@ -66,9 +64,11 @@ def _dl_fdr_threshold(fcd_statistic, fdr=0.1, one_sided=False):
         else:
             multiplicator = 2
 
-        temp_result = \
-            multiplicator * n_features * (stats.norm.sf(mesh[i]) /
-                                          max(len(mesh) - i - 1, 1))
+        temp_result = (
+            multiplicator
+            * n_features
+            * (stats.norm.sf(mesh[i]) / max(len(mesh) - i - 1, 1))
+        )
         if temp_result <= fdr:
             threshold = mesh[i]
             break

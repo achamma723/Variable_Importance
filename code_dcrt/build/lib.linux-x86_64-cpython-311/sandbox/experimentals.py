@@ -168,7 +168,6 @@ class LassoRefit(Lasso):
         super(Lasso, self).__init__(
             alpha=alpha,
             fit_intercept=fit_intercept,
-            normalize=normalize,
             precompute=precompute,
             copy_X=copy_X,
             max_iter=max_iter,

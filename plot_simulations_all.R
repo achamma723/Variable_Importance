@@ -6,66 +6,54 @@ suppressMessages({
   library("scales")
 })
 
-file_path <- paste0("results/")
-filename <- "simulation_results_blocks_100_allMethods_pred_imp_final"
+file_path <- paste0(getwd(), "/results/results_csv/")
+filename <- paste0(file_path, "simulation_results_blocks_100_allMethods_pred_final")
 nb_relevant <- 20
 N_CPU <- 100
 
 list_func <- c(
   "Marg",
-  "Knockoff_bart",
-  "Knockoff_lasso",
-  "Shap",
-  "SAGE",
-  "MDI",
   "d0CRT",
-  "BART",
-  "Knockoff_deep",
-  # "Knockoff_deepall_mlp",
-  # "Knockoff_deepall_single_mlp",
-  # "Knockoff_deepall_mlp_new",
-  # "Knockoff_deep_single_mlp_test",
-  # "Knockoff_deep_mlp_new",
-  # "Permfit-DNN_5",
-  # "CPI-DNN_5",
   "Permfit-DNN",
   "CPI-DNN",
-  # "CPI-DNN_Mod",
-  # "CPI-DNN_Stack",
-  # "CPI-DNN_noStack",
-  # "gpfi",
-  # "gopfi",
-  # "dgi",
-  # "goi",
-  "lazyvi",
-  # "vimp",
   "CPI-RF",
-  "Strobl",
+  "lazyvi",
   "cpi_knockoff",
-  "loco"
-  # "Knockoff_path",
-  #    "Knockoff_lasso",
-  #    "Ale",
-  #    "HoldOut_nr",
-  #    "Altmann",
-  #    "d0CRT_scaled",
-  #    "Bart_py",
-  #    "GRF_regression",
-  #    "GRF_quantile",
+  "loco",
+  # "LOCO-DNN",
+  "Strobl"
+  # "Shap",
+  # "SAGE",
+  # "MDI",
+  # "BART"
+  # "Knockoff_bart",
+  # "Knockoff_lasso",
+  # "Knockoff_deep",
 )
 
 run_plot_auc <- TRUE
 run_plot_type1error <- TRUE
 run_plot_power <- TRUE
 run_time <- TRUE
-run_plot_pred <- FALSE
-run_plot_fdr <- FALSE
 run_plot_combine <- FALSE
+
+run_all_methods <- FALSE
+with_pval <- TRUE
+
+filename_lbl_auc <- strsplit(filename, "_results_")[[1]][2]
+filename_lbl <- strsplit(filename, "_results_")[[1]][2]
+if (run_all_methods){
+  if (with_pval==TRUE){
+    filename_lbl_auc <- paste0(filename_lbl_auc, '_withPval')
+  }else{
+  filename_lbl_auc <- paste0(filename_lbl_auc, '_withoutPval')
+  }
+}
 
 
 if (run_plot_auc) {
   plot_method(paste0(filename, ".csv"),
-              "AUC_blocks_100_allMethods_pred_imp_final",
+              paste0("AUC_1", filename_lbl_auc),
               compute_auc,
               nb_relevant = nb_relevant,
               cor_coef = 0.8,
@@ -78,7 +66,7 @@ if (run_plot_auc) {
 
 if (run_plot_type1error) {
   plot_method(paste0(filename, ".csv"),
-              "type1error_blocks_100_allMethods_pred_imp_final",
+              paste0("type1error_1", filename_lbl),
               compute_pval,
               nb_relevant = nb_relevant,
               upper_bound = 0.05,
@@ -91,7 +79,7 @@ if (run_plot_type1error) {
 
 if (run_plot_power) {
   plot_method(paste0(filename, ".csv"),
-              "power_blocks_100_allMethods_pred_imp_final",
+              paste0("power_1", filename_lbl),
               compute_power,
               nb_relevant = nb_relevant,
               upper_bound = 0.05,
@@ -104,46 +92,20 @@ if (run_plot_power) {
 
 if (run_time) {
   plot_time(paste0(filename, ".csv"),
-            "time_bars_blocks_100_allMethods_pred_imp_final",
+            paste0("time_bars_1", filename_lbl),
             list_func = list_func,
             N_CPU = N_CPU
   )
 }
 
 
-if (run_plot_pred) {
-  plot_method(paste0(filename, ".csv"),
-              "pred_blocks_100_allMethods_pred_imp",
-              compute_pred,
-              nb_relevant = nb_relevant,
-              upper_bound = 0.2,
-              cor_coef = 0.8,
-              title = "Prediction scores",
-              list_func = list_func
-  )
-}
-
-
 if (run_plot_combine) {
   plot_method(paste0(filename, ".csv"),
-              "combine_blocks_100_dnn_dnn_py_perm_100--1000",
+              paste0("combine_", filename_lbl),
               nb_relevant = nb_relevant,
               cor_coef = 0.8,
               title = "AUC",
               list_func = list_func,
               mediane_bool = TRUE
-  )
-}
-
-
-if (run_plot_fdr) {
-  plot_method(paste0(filename, ".csv"),
-              "fdr_blocks_10_knockoffDeep_single_orig_imp_n",
-              compute_fdr,
-              nb_relevant = nb_relevant,
-              upper_bound = 0.2,
-              cor_coef = 0.8,
-              title = "FDR Control",
-              list_func = list_func
   )
 }

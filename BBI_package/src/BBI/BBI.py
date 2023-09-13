@@ -79,7 +79,7 @@ class BlockBasedImportance(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         estimator=None,
-        importance_estimator=None,
+        importance_estimator="Mod_RF",
         do_hyper=True,
         dict_hyper=None,
         prob_type="regression",

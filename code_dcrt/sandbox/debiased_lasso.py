@@ -6,25 +6,37 @@ from scipy import stats
 from sklearn.linear_model import Lasso, LassoCV
 
 
-def debiased_lasso(X, y, cv=3, alpha=1.0, mu=None, resol=1.3, max_iter=50,
-                   tol=1e-2, inference=False, q=0.05, verbose=False, n_jobs=1):
+def debiased_lasso(
+    X,
+    y,
+    cv=3,
+    alpha=1.0,
+    mu=None,
+    resol=1.3,
+    max_iter=50,
+    tol=1e-2,
+    inference=False,
+    q=0.05,
+    verbose=False,
+    n_jobs=1,
+):
     """Debiased Lasso of Javanmard & Montanari (2014a,b) in Python
 
-    :param X: 
-    :param y: 
-    :param cv: 
+    :param X:
+    :param y:
+    :param cv:
     :param alpha: float, optional
          regularization parameter for Lasso problem, adaptively chosen if cv > 1
-    :param mu: 
-    :param resol: 
-    :param max_iter: 
-    :param tol: 
-    :param inference: 
+    :param mu:
+    :param resol:
+    :param max_iter:
+    :param tol:
+    :param inference:
     :param q: float, optional
         Degree of siginificance for calculation of confidence intervals &
         pvalues, only used when inference is True
-    :param verbose: 
-    :param n_jobs: 
+    :param verbose:
+    :param n_jobs:
 
     """
     n_samples, n_features = X.shape
@@ -52,8 +64,15 @@ def debiased_lasso(X, y, cv=3, alpha=1.0, mu=None, resol=1.3, max_iter=50,
     if n_samples >= 2 * n_features and tmp >= 1e-4:
         M = np.linalg.inv(Sigma_hat)  # if we are in nice regime
     else:
-        M = _solve_precision(Sigma_hat, n_samples, resol=resol, mu=mu,
-                             max_iter=max_iter, tol=tol, verbose=verbose)
+        M = _solve_precision(
+            Sigma_hat,
+            n_samples,
+            resol=resol,
+            mu=mu,
+            max_iter=max_iter,
+            tol=tol,
+            verbose=verbose,
+        )
 
     # Bias correction
     unbiased_coef = coef + M.dot(X.T.dot(y - X.dot(coef))) / n_samples
@@ -63,8 +82,9 @@ def debiased_lasso(X, y, cv=3, alpha=1.0, mu=None, resol=1.3, max_iter=50,
         A = M.dot(Sigma_hat.dot(M.T))
         s_hat, s0 = _noise_estimation(unbiased_coef, A, n_samples)
 
-        interval_size = stats.norm.ppf(1 - q / 2) * s_hat * \
-            np.sqrt(np.diag(A)) / np.sqrt(n_samples)
+        interval_size = (
+            stats.norm.ppf(1 - q / 2) * s_hat * np.sqrt(np.diag(A)) / np.sqrt(n_samples)
+        )
 
         add_length = np.zeros(n_features)
 
@@ -72,7 +92,7 @@ def debiased_lasso(X, y, cv=3, alpha=1.0, mu=None, resol=1.3, max_iter=50,
         for i in range(n_features):
             effective_mu_vec = np.sort(np.abs(-MM[i, :]))  # sort decreasing
             effective_mu_vec = effective_mu_vec[s0 - 1]
-            add_length[i] = np.sqrt(np.sum(effective_mu_vec ** 2)) * clf.alpha_
+            add_length[i] = np.sqrt(np.sum(effective_mu_vec**2)) * clf.alpha_
 
         interval_size = interval_size * col_norm
         add_length = add_length * col_norm
@@ -82,22 +102,26 @@ def debiased_lasso(X, y, cv=3, alpha=1.0, mu=None, resol=1.3, max_iter=50,
     unbiased_coef = unbiased_coef * col_norm
 
     if inference:
-        pvals = 2 * (1 - stats.norm.cdf(
-            np.sqrt(n_samples) * np.abs(unbiased_coef) / (
-                s_hat * col_norm * np.sqrt(np.diag(A)))))
+        pvals = 2 * (
+            1
+            - stats.norm.cdf(
+                np.sqrt(n_samples)
+                * np.abs(unbiased_coef)
+                / (s_hat * col_norm * np.sqrt(np.diag(A)))
+            )
+        )
 
         lower_interval = unbiased_coef - interval_size - add_length
         upper_interval = unbiased_coef + interval_size + add_length
 
-        return (unbiased_coef, pvals, lower_interval, upper_interval,
-                M, s_hat, s0)
+        return (unbiased_coef, pvals, lower_interval, upper_interval, M, s_hat, s0)
 
     return unbiased_coef, coef, M
 
 
-def _solve_precision(Sigma, n_samples, resol=1.5, mu=None, max_iter=50,
-                     tol=1e-2, verbose=True):
-
+def _solve_precision(
+    Sigma, n_samples, resol=1.5, mu=None, max_iter=50, tol=1e-2, verbose=True
+):
     is_given = False if mu is None else True
     n_features = Sigma.shape[0]
 
@@ -111,17 +135,17 @@ def _solve_precision(Sigma, n_samples, resol=1.5, mu=None, max_iter=50,
         if verbose:
             if i % xp == 0:
                 xperc = xperc + 10
-                print(f'Finding M: {xperc}% done...')
+                print(f"Finding M: {xperc}% done...")
         # Reset the value of mu for each i
         if not is_given:
-            mu = stats.norm.ppf(
-                1 - (0.1 / (n_features ** 2))) / np.sqrt(n_samples)
+            mu = stats.norm.ppf(1 - (0.1 / (n_features**2))) / np.sqrt(n_samples)
         try_no = 1
         increasing = False
         while try_no <= 10:
             last_beta = beta
             beta, iteration = _solve_precision_one_row(
-                Sigma, i, mu, max_iter=max_iter, tol=tol)
+                Sigma, i, mu, max_iter=max_iter, tol=tol
+            )
             if is_given is True:
                 break
             else:
@@ -145,7 +169,8 @@ def _solve_precision(Sigma, n_samples, resol=1.5, mu=None, max_iter=50,
                         break
             try_no += 1
             print(
-                f'feature: {i}, try_no: {try_no}, mu: {mu}, increasing: {increasing}, iteration: {iteration}')
+                f"feature: {i}, try_no: {try_no}, mu: {mu}, increasing: {increasing}, iteration: {iteration}"
+            )
         M[i, :] = beta
 
     return M
@@ -185,8 +210,8 @@ def _solve_precision_one_row(Sigma, i, mu, max_iter=50, tol=1e-2):
         iteration = iteration + 1
         if iteration == 2 * iteration_old:
             d = beta - beta_old
-            diff_norm_2 = np.sqrt(np.sum(d ** 2))
-            last_norm_2 = np.sqrt(np.sum(beta ** 2))
+            diff_norm_2 = np.sqrt(np.sum(d**2))
+            last_norm_2 = np.sqrt(np.sum(beta**2))
             iteration_old = iteration
             beta_old = beta
 

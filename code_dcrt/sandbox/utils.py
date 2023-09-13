@@ -18,22 +18,19 @@ def quantile_aggregation(pvals, gamma=0.5, gamma_min=0.05, adaptive=False):
     return _fixed_quantile_aggregation(pvals, gamma)
 
 
-def fdr_threshold(pvals, fdr=0.1, method='bhq', reshaping_function=None):
-    if method == 'bhq':
+def fdr_threshold(pvals, fdr=0.1, method="bhq", reshaping_function=None):
+    if method == "bhq":
         return _bhq_threshold(pvals, fdr=fdr)
-    elif method == 'bhy':
-        return _bhy_threshold(
-            pvals, fdr=fdr, reshaping_function=reshaping_function)
-    elif method == 'adapt':
+    elif method == "bhy":
+        return _bhy_threshold(pvals, fdr=fdr, reshaping_function=reshaping_function)
+    elif method == "adapt":
         return _adapt_threshold(pvals, fdr=fdr)
     else:
-        raise ValueError(
-            '{} is not support FDR control method'.format(method))
+        raise ValueError("{} is not support FDR control method".format(method))
 
 
-def cal_fdp_power(selected, non_zero_index, delta=0, n_features=None,
-                  r_index=False):
-    """ Calculate power and False Discovery Proportion
+def cal_fdp_power(selected, non_zero_index, delta=0, n_features=None, r_index=False):
+    """Calculate power and False Discovery Proportion
 
     Parameters
     ----------
@@ -54,7 +51,7 @@ def cal_fdp_power(selected, non_zero_index, delta=0, n_features=None,
 
     if selected.size == 0:
         return 0.0, 0.0
-    
+
     n_positives = len(non_zero_index)
 
     if r_index:
@@ -72,8 +69,9 @@ def cal_fdp_power(selected, non_zero_index, delta=0, n_features=None,
     return fdp, power
 
 
-def cal_dir_fdp_power(selected, sign_estimated, true_sign, non_zero_index,
-                      r_index=True):
+def cal_dir_fdp_power(
+    selected, sign_estimated, true_sign, non_zero_index, r_index=True
+):
     """Calculate directional FDR and Power
 
     Parameters
@@ -92,32 +90,29 @@ def cal_dir_fdp_power(selected, sign_estimated, true_sign, non_zero_index,
     # python by 1 unit
     if r_index:
         selected = selected - 1
-    false_positive = np.sum(np.not_equal(sign_estimated[selected],
-                                         true_sign[selected]))
-    true_positive = np.sum(np.equal(sign_estimated[selected],
-                                    true_sign[selected]))
+    false_positive = np.sum(np.not_equal(sign_estimated[selected], true_sign[selected]))
+    true_positive = np.sum(np.equal(sign_estimated[selected], true_sign[selected]))
     dir_fdp = false_positive / max(len(selected), 1)
     dir_power = true_positive / max(len(non_zero_index), 1)
     return dir_fdp, dir_power
 
 
 def broadcast_metric(metrics, cluster_labels, n_features):
-
     broadcasted = [metrics[cluster_labels[i]] for i in range(n_features)]
     return np.array(broadcasted)
 
 
-def broadcast_coef_sign(selected, X_reduced, y, cluster_labels, n_features,
-                        loss='least_square'):
-
+def broadcast_coef_sign(
+    selected, X_reduced, y, cluster_labels, n_features, loss="least_square"
+):
     coef_signs = np.zeros(n_features)
 
     if selected.size != 0:
-        if loss == 'least_square':
+        if loss == "least_square":
             clf = LinearRegression(fit_intercept=False, normalize=True)
             clf.fit(X_reduced[:, selected], y)
             coef = clf.coef_
-        elif loss == 'logistic':
+        elif loss == "logistic":
             clf = LogisticRegressionCV(cv=3, tol=1e-6, max_iter=1e5)
             clf.fit(X_reduced[:, selected], y)
             coef = clf.coef_[0]
@@ -145,18 +140,25 @@ def zscore_logistic(data, labels):
 
     nrows, ncols = data.shape
     data_with_intercept = np.hstack([np.ones((nrows, 1)), data])
-    lr_estimator = LogisticRegressionCV(Cs=9, fit_intercept=False,
-                                        tol=1e-08, cv=10,
-                                        penalty='l1', solver='liblinear',
-                                        max_iter=10000)
+    lr_estimator = LogisticRegressionCV(
+        Cs=9,
+        fit_intercept=False,
+        tol=1e-08,
+        cv=10,
+        penalty="l1",
+        solver="liblinear",
+        max_iter=10000,
+    )
     lr_estimator.fit(data_with_intercept, labels)
     pred = lr_estimator.predict_proba(data_with_intercept)
     V = np.diag((pred[:, 0] * pred[:, 1]))
     coef_sigma = np.linalg.inv(
-        np.dot(data_with_intercept.T, np.dot(V, data_with_intercept)))
+        np.dot(data_with_intercept.T, np.dot(V, data_with_intercept))
+    )
     coef_std_error = np.sqrt(np.diag(coef_sigma))
-    zscore = np.array([lr_estimator.coef_[0][i] / coef_std_error[i] for i in
-                       range(ncols + 1)])
+    zscore = np.array(
+        [lr_estimator.coef_[0][i] / coef_std_error[i] for i in range(ncols + 1)]
+    )
     return zscore[1:]
 
 
@@ -176,15 +178,19 @@ def zscore_ols(data, labels):
     ols = LinearRegression(fit_intercept=False, normalize=True)
     ols.fit(data, labels)
 
-    sigma_hat = np.sum((labels - data.dot(ols.coef_) - ols.intercept_ *
-                        np.ones(n_samples)) ** 2) / n_samples
+    sigma_hat = (
+        np.sum(
+            (labels - data.dot(ols.coef_) - ols.intercept_ * np.ones(n_samples)) ** 2
+        )
+        / n_samples
+    )
     inv_diag_data = np.diag(np.linalg.inv(data.T.dot(data)))
     se_beta = np.sqrt(sigma_hat * inv_diag_data)
     zscore = ols.coef_ / se_beta
     return zscore
 
 
-def _reid(X, y, method="lars", tol=1e-6, max_iter=1e+3):
+def _reid(X, y, method="lars", tol=1e-6, max_iter=1e3):
     """Estimation of noise standard deviation using Reid procedure
 
     Parameters
@@ -200,7 +206,7 @@ def _reid(X, y, method="lars", tol=1e-6, max_iter=1e+3):
             smaller than ``tol``, the optimization code checks the
             dual gap for optimality and continues until it is smaller
             than ``tol``.
-        """
+    """
 
     X = np.asarray(X)
     n_samples, n_features = X.shape
@@ -220,13 +226,12 @@ def _reid(X, y, method="lars", tol=1e-6, max_iter=1e+3):
         error = clf_lasso_cv.predict(X) - y
         support = sum(clf_lasso_cv.coef_ != 0)
 
-    sigma_hat = np.sqrt((1. / (n_samples - support))
-                        * np.linalg.norm(error) ** 2)
+    sigma_hat = np.sqrt((1.0 / (n_samples - support)) * np.linalg.norm(error) ** 2)
 
     return sigma_hat
 
 
-def pval_from_zscore(t_stat, distrib='Norm'):
+def pval_from_zscore(t_stat, distrib="Norm"):
     """p-values from z-scores
 
     Parameters
@@ -236,7 +241,7 @@ def pval_from_zscore(t_stat, distrib='Norm'):
     """
     n_features = t_stat.size
 
-    if distrib == 'Norm':
+    if distrib == "Norm":
         pval = 2 * norm.sf(np.abs(t_stat))
 
     pval_corr = np.minimum(1, pval * n_features)
@@ -244,7 +249,7 @@ def pval_from_zscore(t_stat, distrib='Norm'):
     return pval, pval_corr
 
 
-def zscore_from_sf(sf, distrib='Norm'):
+def zscore_from_sf(sf, distrib="Norm"):
     """z-scores from survival function values
 
     Parameters
@@ -252,13 +257,13 @@ def zscore_from_sf(sf, distrib='Norm'):
         sf : float
             Survival function values
     """
-    if distrib == 'Norm':
+    if distrib == "Norm":
         t_stat = norm.isf(sf)
 
     return t_stat
 
 
-def pval_from_sf(sf, distrib='Norm'):
+def pval_from_sf(sf, distrib="Norm"):
     """z-scores from survival function values
 
     Parameters
@@ -266,15 +271,13 @@ def pval_from_sf(sf, distrib='Norm'):
         sf : float
             Survival function values
     """
-    pval = pval_from_zscore(
-        zscore_from_sf(sf, distrib=distrib), distrib=distrib)
+    pval = pval_from_zscore(zscore_from_sf(sf, distrib=distrib), distrib=distrib)
 
     return pval
 
 
 def _bhq_threshold(pvals, fdr=0.1):
-    """Standard Benjamini-Hochberg for controlling False discovery rate
-    """
+    """Standard Benjamini-Hochberg for controlling False discovery rate"""
     n_features = len(pvals)
     pvals_sorted = np.sort(pvals)
     selected_index = 2 * n_features
@@ -343,8 +346,7 @@ def _fixed_quantile_aggregation(pvals, gamma=0.5):
     1D ndarray (n_tests, )
         Vector of aggregated p-value
     """
-    converted_score = (1 / gamma) * (
-        np.percentile(pvals, q=100*gamma, axis=0))
+    converted_score = (1 / gamma) * (np.percentile(pvals, q=100 * gamma, axis=0))
 
     return np.minimum(1, converted_score)
 
@@ -353,8 +355,7 @@ def _adaptive_quantile_aggregation(pvals, gamma_min=0.05):
     """adaptive version of the quantile aggregation method, Meinshausen et al
     (2008)"""
     gammas = np.arange(gamma_min, 1.05, 0.05)
-    list_Q = np.array([
-        _fixed_quantile_aggregation(pvals, gamma) for gamma in gammas])
+    list_Q = np.array([_fixed_quantile_aggregation(pvals, gamma) for gamma in gammas])
 
     return np.minimum(1, (1 - np.log(gamma_min)) * list_Q.min(0))
 
@@ -387,19 +388,28 @@ def _fdp_hat(t, score_vector, offset=1):
 #     return np.unique(non_zero_index)
 
 
-def _cluster_data(X, n_clusters, train_size=None, linkage='ward',
-                  connectivity=None, memory=None, rand=None):
-
-    cluster_object = FeatureAgglomeration(n_clusters, linkage=linkage,
-                                          memory=memory,
-                                          connectivity=connectivity)
+def _cluster_data(
+    X,
+    n_clusters,
+    train_size=None,
+    linkage="ward",
+    connectivity=None,
+    memory=None,
+    rand=None,
+):
+    cluster_object = FeatureAgglomeration(
+        n_clusters, linkage=linkage, memory=memory, connectivity=connectivity
+    )
     n_samples, _ = X.shape
     if train_size is None:
         X_reduced = cluster_object.fit_transform(X)
     else:
-        train_index = resample(np.arange(n_samples),
-                               n_samples=int(n_samples * train_size),
-                               replace=False, random_state=rand)
+        train_index = resample(
+            np.arange(n_samples),
+            n_samples=int(n_samples * train_size),
+            replace=False,
+            random_state=rand,
+        )
         cluster_object.fit(X[train_index, :])
         X_reduced = cluster_object.transform(X)
 
@@ -410,7 +420,6 @@ def _cluster_data(X, n_clusters, train_size=None, linkage='ward',
 
 
 def _empirical_pval(test_score, offset=1):
-
     pvals = []
     n_features = test_score.size
 
@@ -422,21 +431,21 @@ def _empirical_pval(test_score, offset=1):
         if test_score[i] <= 0:
             pvals.append(1)
         else:
-            pvals.append((offset +
-                          np.sum(test_score_inv >= test_score[i])) / n_features)
+            pvals.append(
+                (offset + np.sum(test_score_inv >= test_score[i])) / n_features
+            )
 
     return np.array(pvals)
 
 
 def _vote_sign(sign_matrix, selected):
-
     n_features = sign_matrix.shape[1]
     feature_signs = np.zeros(n_features)
 
     for i in range(n_features):
         if i in selected:
             extract = sign_matrix[:, i]
-            feature_signs[i] = (_find_mode(extract[extract != 0]))
+            feature_signs[i] = _find_mode(extract[extract != 0])
         else:
             continue
 

@@ -2,16 +2,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchsummary import summary
-from tqdm import tqdm
+from sklearn.metrics import (log_loss, mean_squared_error, r2_score,
+                             roc_auc_score)
 from sklearn.preprocessing import StandardScaler
 from torchmetrics import Accuracy
-from sklearn.metrics import mean_squared_error, log_loss, r2_score, roc_auc_score
-accuracy = Accuracy(task='binary')
+from torchsummary import summary
+from tqdm import tqdm
+
+accuracy = Accuracy(task="binary")
 
 
 def _init_weights(layer):
-    """ Helper function to _train_dnn
+    """Helper function to _train_dnn
 
     This function helps to initialize the weights and the bias of each
     layer of the module.
@@ -26,7 +28,7 @@ def _init_weights(layer):
 
 
 def _access_weights(model):
-    """ Helper function to _compute_l1_loss and _compute_l2_loss of
+    """Helper function to _compute_l1_loss and _compute_l2_loss of
     class DNN.
 
     Args:
@@ -44,7 +46,7 @@ def _access_weights(model):
 
 
 class DNN(nn.Module):
-    """ Class for Deep Neural Network module.
+    """Class for Deep Neural Network module.
 
     This class aims to create instances of the DNN module with the
     pre-defined architecture.
@@ -61,7 +63,7 @@ class DNN(nn.Module):
         self.layers = nn.Sequential(
             # The Flatten layer will sequeeze the dimension 1
             nn.Flatten(start_dim=1),
-            nn.Linear(nb_knockoffs*in_size, in_size),
+            nn.Linear(nb_knockoffs * in_size, in_size),
             nn.ELU(),
             # hidden layers
             nn.Linear(in_size, 50),
@@ -73,7 +75,8 @@ class DNN(nn.Module):
             nn.Linear(30, 20),
             nn.ELU(),
             # output layer
-            nn.Linear(20, 1))
+            nn.Linear(20, 1),
+        )
 
         self.loss = 0
         self.gradients = []
@@ -83,7 +86,7 @@ class DNN(nn.Module):
         return self.layers(x)
 
     def _compute_l1_loss(self, l1_weight):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps in the computation of the L1-loss using
         the weights of the module.
@@ -98,7 +101,7 @@ class DNN(nn.Module):
         return l1_weight * torch.abs(weights).sum()
 
     def _compute_l2_loss(self, l2_weight):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps in the computation of the L2-loss using
         the weights of the module.
@@ -113,7 +116,7 @@ class DNN(nn.Module):
         return l2_weight * torch.pow(weights, 2).sum()
 
     def _training_step(self, batch, device, prob_type):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps to perform one step of training per batch
         of data for the instance of the DNN module.
@@ -132,15 +135,14 @@ class DNN(nn.Module):
         """
         X, y = batch[0].to(device), batch[1].to(device)
         y_pred = self(X)  # Generate predictions
-        if prob_type == 'regression':
+        if prob_type == "regression":
             loss = F.mse_loss(y_pred, y)
         else:
-            loss = F.binary_cross_entropy_with_logits(
-                y_pred, y)  # Calculate loss
+            loss = F.binary_cross_entropy_with_logits(y_pred, y)  # Calculate loss
         return loss
 
     def _validation_step(self, batch, device, prob_type):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps to perform one step of validation per
         batch of data for the instance of the DNN module.
@@ -161,17 +163,22 @@ class DNN(nn.Module):
         """
         X, y = batch[0].to(device), batch[1].to(device)
         y_pred = self(X)  # Generate predictions
-        if prob_type == 'regression':
+        if prob_type == "regression":
             loss = F.mse_loss(y_pred, y)
-            return {'val_mse': loss, 'pred_val': y_pred, 'batch_size': len(X), 'X': X}
+            return {"val_mse": loss, "pred_val": y_pred, "batch_size": len(X), "X": X}
         else:
-            loss = F.binary_cross_entropy_with_logits(
-                y_pred, y)  # Calculate loss
+            loss = F.binary_cross_entropy_with_logits(y_pred, y)  # Calculate loss
             acc = accuracy(y_pred, y.int())
-            return {'val_loss': loss, 'val_acc': acc, 'pred_val': y_pred, 'batch_size': len(X), 'X': X}
+            return {
+                "val_loss": loss,
+                "val_acc": acc,
+                "pred_val": y_pred,
+                "batch_size": len(X),
+                "X": X,
+            }
 
     def _validation_epoch_end(self, outputs, prob_type):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps to perform the concatenation of the losses
         for the batches of the validation set for the instance of the
@@ -187,28 +194,31 @@ class DNN(nn.Module):
             validation set. If classification, the accuracy for the
             whole data will also be returned.
         """
-        if prob_type == 'classification':
+        if prob_type == "classification":
             batch_losses = []
             batch_accs = []
             batch_sizes = []
             for x in outputs:
-                batch_losses.append(x['val_loss'] * x['batch_size'])
-                batch_accs.append(x['val_acc'] * x['batch_size'])
-                batch_sizes.append(x['batch_size'])
-            self.loss = torch.stack(batch_losses).sum(
-            ).item() / np.sum(batch_sizes)  # Combine losses
-            epoch_acc = torch.stack(batch_accs).sum().item(
-            ) / np.sum(batch_sizes)  # Combine accuracies
-            return {'val_loss': self.loss, 'val_acc': epoch_acc}
+                batch_losses.append(x["val_loss"] * x["batch_size"])
+                batch_accs.append(x["val_acc"] * x["batch_size"])
+                batch_sizes.append(x["batch_size"])
+            self.loss = torch.stack(batch_losses).sum().item() / np.sum(
+                batch_sizes
+            )  # Combine losses
+            epoch_acc = torch.stack(batch_accs).sum().item() / np.sum(
+                batch_sizes
+            )  # Combine accuracies
+            return {"val_loss": self.loss, "val_acc": epoch_acc}
         else:
-            batch_losses = [x['val_mse'] * x['batch_size'] for x in outputs]
-            batch_sizes = [x['batch_size'] for x in outputs]
-            self.loss = torch.stack(batch_losses).sum(
-            ).item() / np.sum(batch_sizes)  # Combine losses
-            return {'val_mse': self.loss}
+            batch_losses = [x["val_mse"] * x["batch_size"] for x in outputs]
+            batch_sizes = [x["batch_size"] for x in outputs]
+            self.loss = torch.stack(batch_losses).sum().item() / np.sum(
+                batch_sizes
+            )  # Combine losses
+            return {"val_mse": self.loss}
 
     def _epoch_end(self, epoch, result):
-        """ Helper function to _train_dnn
+        """Helper function to _train_dnn
 
         This function helps to print the progress at the end of each epoch.
 
@@ -219,15 +229,17 @@ class DNN(nn.Module):
             will be returned
         """
         if len(result) == 2:
-            print("Epoch [{}], val_loss: {:.4f}, val_acc: {:.4f}".format(
-                epoch+1, result['val_loss'], result['val_acc']))
+            print(
+                "Epoch [{}], val_loss: {:.4f}, val_acc: {:.4f}".format(
+                    epoch + 1, result["val_loss"], result["val_acc"]
+                )
+            )
         else:
-            print("Epoch [{}], val_mse: {:.4f}".format(
-                epoch+1, result['val_mse']))
+            print("Epoch [{}], val_mse: {:.4f}".format(epoch + 1, result["val_mse"]))
 
 
 def _evaluate(model, loader, device, prob_type):
-    """ Helper function to _train_dnn
+    """Helper function to _train_dnn
 
     Args:
         model (__main__.DNN): An instance of the DNN module
@@ -243,13 +255,12 @@ def _evaluate(model, loader, device, prob_type):
         validation set. If classification, the accuracy for the whole
         data will also be returned.
     """
-    outputs = [model._validation_step(
-        batch, device, prob_type) for batch in loader]
+    outputs = [model._validation_step(batch, device, prob_type) for batch in loader]
     return model._validation_epoch_end(outputs, prob_type)
 
 
 def _evaluate_final(model, loader, device, prob_type):
-    """ Helper function to _train_dnn
+    """Helper function to _train_dnn
     Args:
         model (__main__.DNN): An instance of the DNN module
         loader (Pytorch DataLoader): The loader containing the
@@ -261,11 +272,27 @@ def _evaluate_final(model, loader, device, prob_type):
     """
     if isinstance(device, str):
         device = torch.device(device)
-    outputs = [model._validation_step(
-        batch, device, prob_type) for batch in loader]
-    model.pred = torch.cat([x['pred_val'] for x in outputs], dim=0).cpu().detach().numpy()
-    model.gradients = torch.cat([torch.autograd.grad(x['pred_val'], x['X'], torch.ones_like(
-        x['pred_val']), create_graph=True)[0] for x in outputs], dim=0).cpu().detach().numpy()
+    outputs = [model._validation_step(batch, device, prob_type) for batch in loader]
+    model.pred = (
+        torch.cat([x["pred_val"] for x in outputs], dim=0).cpu().detach().numpy()
+    )
+    model.gradients = (
+        torch.cat(
+            [
+                torch.autograd.grad(
+                    x["pred_val"],
+                    x["X"],
+                    torch.ones_like(x["pred_val"]),
+                    create_graph=True,
+                )[0]
+                for x in outputs
+            ],
+            dim=0,
+        )
+        .cpu()
+        .detach()
+        .numpy()
+    )
     # p_f = outputs[0]['X'].shape[2]
     # model.gradients = torch.eye(p_f * 2)
     # for layer in model.layers:
@@ -273,10 +300,26 @@ def _evaluate_final(model, loader, device, prob_type):
     #         model.gradients = torch.mm(model.gradients, torch.transpose(layer.weight, 0, 1))
     # model.gradients = model.gradients.cpu().detach().numpy().reshape(2, p_f)
 
-def _train_dnn(train_loader, val_loader, test_loader, p=50, nb_knockoffs=5, n_epochs=200, lr=1e-3, beta1=0.9,
-               beta2=0.999, eps=1e-8, l1_weight=1e-4, l2_weight=0, save_file=None, verbose=2,
-               random_state=2021, prob_type='regression'):
-    """ Helper function for _ensemble_dnnet
+
+def _train_dnn(
+    train_loader,
+    val_loader,
+    test_loader,
+    p=50,
+    nb_knockoffs=5,
+    n_epochs=200,
+    lr=1e-3,
+    beta1=0.9,
+    beta2=0.999,
+    eps=1e-8,
+    l1_weight=1e-4,
+    l2_weight=0,
+    save_file=None,
+    verbose=2,
+    random_state=2021,
+    prob_type="regression",
+):
+    """Helper function for _ensemble_dnnet
 
     This function helps to train one instance of the DNN module.
     The training process is realized with the training set using the
@@ -285,7 +328,7 @@ def _train_dnn(train_loader, val_loader, test_loader, p=50, nb_knockoffs=5, n_ep
     according to the comparison with the best loss attained so far on
     the validation set using the "val_loader". Finally, the prediction
     phase of the whole data is done using the "original_loader" and
-    the predictions are saved into the class variable "pred". 
+    the predictions are saved into the class variable "pred".
 
     Args:
         train_loader (Pytorch DataLoader): DataLoader for Train data
@@ -329,7 +372,8 @@ def _train_dnn(train_loader, val_loader, test_loader, p=50, nb_knockoffs=5, n_ep
     model.apply(_init_weights)
     # Adam Optimizer
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=lr, betas=(beta1, beta2), eps=eps)
+        model.parameters(), lr=lr, betas=(beta1, beta2), eps=eps
+    )
 
     best_loss = 1e100
     best_model = DNN(p, nb_knockoffs)
@@ -339,8 +383,11 @@ def _train_dnn(train_loader, val_loader, test_loader, p=50, nb_knockoffs=5, n_ep
         model.train()
         for batch in train_loader:
             optimizer.zero_grad()
-            loss = model._training_step(batch, device, prob_type) + model._compute_l1_loss(
-                l1_weight) + model._compute_l2_loss(l2_weight)
+            loss = (
+                model._training_step(batch, device, prob_type)
+                + model._compute_l1_loss(l1_weight)
+                + model._compute_l2_loss(l2_weight)
+            )
             loss.backward()
             optimizer.step()
         # Validation Phase
@@ -348,24 +395,37 @@ def _train_dnn(train_loader, val_loader, test_loader, p=50, nb_knockoffs=5, n_ep
         result = _evaluate(model, val_loader, device, prob_type)
         if model.loss < best_loss:
             best_loss = model.loss
-            best_model = torch.save(model, save_file + '.pth')
-            best_epoch = epoch+1
+            best_model = torch.save(model, save_file + ".pth")
+            best_epoch = epoch + 1
         if verbose >= 2:
             model._epoch_end(epoch, result)
 
-    best_model = torch.load(save_file + '.pth')
+    best_model = torch.load(save_file + ".pth")
     _evaluate_final(best_model, test_loader, device, prob_type)
     return best_model
 
 
-def _ensemble_dnnet(X, y, X_test, y_test, n_ensemble=100, verbose=1, bootstrap=True, split_perc=0.8,
-                    batch_size=32, batch_size_val=128, min_keep=10, prob_type='regression',
-                    save_file=None, random_state=2021):
-    """ Helper function to permfit
+def _ensemble_dnnet(
+    X,
+    y,
+    X_test,
+    y_test,
+    n_ensemble=100,
+    verbose=1,
+    bootstrap=True,
+    split_perc=0.8,
+    batch_size=32,
+    batch_size_val=128,
+    min_keep=10,
+    prob_type="regression",
+    save_file=None,
+    random_state=2021,
+):
+    """Helper function to permfit
 
     This function helps to train the ensemble of DNN module's
     instances. Following, a filtration step is performed in order to
-    keep the best between the best instances already trained. 
+    keep the best between the best instances already trained.
 
     Args:
         X (numpy.array):  The matrix of predictors
@@ -399,14 +459,16 @@ def _ensemble_dnnet(X, y, X_test, y_test, n_ensemble=100, verbose=1, bootstrap=T
     """
     n, m, p = X.shape
     scalers_list = [StandardScaler() for s in range(m)]
-    knockoffs_pairs = np.array([np.array([i, j]) for i, j in zip(
-        np.zeros(m-1, dtype=int), np.arange(1, m))])
+    knockoffs_pairs = np.array(
+        [np.array([i, j]) for i, j in zip(np.zeros(m - 1, dtype=int), np.arange(1, m))]
+    )
 
     if bootstrap:
         train_ind = np.random.choice(n, size=n, replace=True)
     else:
-        train_ind = np.random.choice(n, size=int(
-            np.floor(split_perc*n)), replace=False)
+        train_ind = np.random.choice(
+            n, size=int(np.floor(split_perc * n)), replace=False
+        )
     valid_ind = np.array([ind for ind in range(n) if ind not in train_ind])
     # Sampling and Train/Validate splitting
     X_train, X_valid = X[train_ind], X[valid_ind]
@@ -417,14 +479,11 @@ def _ensemble_dnnet(X, y, X_test, y_test, n_ensemble=100, verbose=1, bootstrap=T
     X_test_scaled = np.zeros((X_test.shape[0], m, p))
     # Scaling the original features and the knockoffs
     for lay in range(m):
-        X_train_scaled[:, lay, :] = scalers_list[lay].fit_transform(
-            X_train[:, lay, :])
-        X_valid_scaled[:, lay, :] = scalers_list[lay].transform(
-            X_valid[:, lay, :])
-        X_test_scaled[:, lay, :] = scalers_list[lay].transform(
-            X_test[:, lay, :])
+        X_train_scaled[:, lay, :] = scalers_list[lay].fit_transform(X_train[:, lay, :])
+        X_valid_scaled[:, lay, :] = scalers_list[lay].transform(X_valid[:, lay, :])
+        X_test_scaled[:, lay, :] = scalers_list[lay].transform(X_test[:, lay, :])
     # Scaling y
-    if prob_type == 'regression':
+    if prob_type == "regression":
         scaler_y = StandardScaler()
         y_train_scaled = scaler_y.fit_transform(y_train)
         y_valid_scaled = scaler_y.transform(y_valid)
@@ -446,20 +505,37 @@ def _ensemble_dnnet(X, y, X_test, y_test, n_ensemble=100, verbose=1, bootstrap=T
     for i in range(n_ensemble):
         # Creating DataLoaders
         train_loader = _Dataset_Loader(
-            X_train_scaled[:, knockoffs_pairs[0], :], tensor_y_train, shuffle=True, batch_size=batch_size)
+            X_train_scaled[:, knockoffs_pairs[0], :],
+            tensor_y_train,
+            shuffle=True,
+            batch_size=batch_size,
+        )
         validate_loader = _Dataset_Loader(
-            X_valid_scaled[:, knockoffs_pairs[0], :], tensor_y_valid, batch_size=batch_size_val)
+            X_valid_scaled[:, knockoffs_pairs[0], :],
+            tensor_y_valid,
+            batch_size=batch_size_val,
+        )
         test_loader = _Dataset_Loader(
-            X_test_scaled[:, knockoffs_pairs[0], :], tensor_y_test, batch_size=batch_size_val)
-        current_model = _train_dnn(train_loader, validate_loader, test_loader,
-                                   p=X_train.shape[2], nb_knockoffs=2, save_file=save_file,
-                                   verbose=verbose, random_state=random_state, prob_type=prob_type)
-        
+            X_test_scaled[:, knockoffs_pairs[0], :],
+            tensor_y_test,
+            batch_size=batch_size_val,
+        )
+        current_model = _train_dnn(
+            train_loader,
+            validate_loader,
+            test_loader,
+            p=X_train.shape[2],
+            nb_knockoffs=2,
+            save_file=save_file,
+            verbose=verbose,
+            random_state=random_state,
+            prob_type=prob_type,
+        )
+
         list_gradients.append(current_model.gradients)
 
-        if prob_type == 'regression':
-            preds[:, i] = current_model.pred[:, 0] * \
-                scaler_y.scale_ + scaler_y.mean_
+        if prob_type == "regression":
+            preds[:, i] = current_model.pred[:, 0] * scaler_y.scale_ + scaler_y.mean_
         else:
             preds[:, i] = current_model.pred[:, 0]
 
@@ -480,12 +556,12 @@ def _ensemble_dnnet(X, y, X_test, y_test, n_ensemble=100, verbose=1, bootstrap=T
         score = roc_auc_score(y_test, _sigmoid(np.mean(preds, axis=1)))
 
     res = abs(res[0, :]) - abs(res[1, :])
-    
+
     return res, score
 
 
 def _Dataset_Loader(X, tensor_y, shuffle=False, batch_size=50):
-    """ Helper function to _ensemble_dnnet
+    """Helper function to _ensemble_dnnet
 
     This function helps to prepare the dataset loader with both the
     predictors and the outcome.
@@ -502,16 +578,16 @@ def _Dataset_Loader(X, tensor_y, shuffle=False, batch_size=50):
     """
     tensor_x = torch.from_numpy(X).float()
     tensor_x.requires_grad = True
-    dataset = torch.utils.data.TensorDataset(tensor_x,
-                                             tensor_y)
+    dataset = torch.utils.data.TensorDataset(tensor_x, tensor_y)
 
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle)
+        dataset, batch_size=batch_size, shuffle=shuffle
+    )
     return loader
 
 
 def _sigmoid(x):
-    """ Helper function to _ensemble_dnnet
+    """Helper function to _ensemble_dnnet
 
     Args:
         x (float or numpy.array of floats): A value or array of values

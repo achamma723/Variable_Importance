@@ -50,87 +50,11 @@ return(mean(obj$p_value[c(1, 11, 21, 31, 41)] < upper_bound))
 }
 
 
-plot_func <- function(obj,
-                      not_time = TRUE,
-                      output_file = "default",
-                      yintercept = 0.5,
-                      title = "AUC",
-                      list_func = NULL) {
-  obj$method <- factor(obj$method,
-    levels = list_func)
-
-  if (not_time) {
-    obj$correlation <- factor(obj$correlation,
-      levels = c(
-        "0.8",
-        "0.5",
-        "0.2",
-        "0"
-      )
-    )
-
-    p <- ggplot(
-      data = data.frame(obj),
-      aes(
-        x = correlation,
-        y = V1,
-        group = method
-      )
-    ) +
-      geom_boxplot(
-        alpha = 0.4, aes(
-          fill = method,
-          color = method
-        ),
-        outlier.size = 3
-      ) +
-      guides(color = "none") +
-      rotate() +
-      ggtitle(title)
-    saveRDS(p, file.path(
-      "results/plot_all",
-      paste0(
-        output_file, ".rds"
-      )
-    ))
-  }
-
-  else {
-    p <- ggplot(
-      data = data.frame(obj),
-      aes(
-        x = method,
-        y = V1
-      )
-    ) +
-    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-      labels = trans_format("log10", math_format(10^.x))) +
-      geom_bar(
-        alpha = 0.4,
-        stat = "identity",
-        width = 0.4,
-        aes(fill = method,
-            color = method)
-      ) +
-      labs(y = "Time (mins)") +
-      xlab("Method") +
-      guides(color = "none")
-    saveRDS(p, file.path(
-      "results/plot_all",
-      paste0(
-        output_file, ".rds"
-      )
-    ))
-  }
-}
-
-
 plot_time <- function(source_file,
                       output_file,
                       list_func = NULL,
                       N_CPU = 10) {
   df <- fread(source_file)
-  # df <- df[df$n_samples == 500]
 
   res <- df[,
     mean(elapsed),
@@ -155,16 +79,6 @@ plot_time <- function(source_file,
         output_file, ".csv"
       )
     ))
-  print("Done")
-  stop()
-  res[,
-    plot_func(c(.BY, .SD),
-      FALSE,
-      output_file = output_file,
-      list_func = list_func
-    ),
-    by = .(n_samples)
-  ]
 }
 
 
@@ -202,21 +116,4 @@ plot_method <- function(source_file,
         output_file, ".csv"
       )
     ))
-  print("Done")
-  stop()
-  res[,
-    plot_func(
-      c(.BY, .SD),
-      TRUE,
-      output_file,
-      yintercept,
-      title,
-      list_func
-    ),
-    by = .(
-      n_samples
-    )
-  ]
-
-  graphics.off()
 }

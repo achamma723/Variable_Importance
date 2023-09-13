@@ -1,13 +1,9 @@
 suppressMessages({
   library("data.table")
   library("mvtnorm")
-  library("sigmoid")
+  # library("sigmoid")
   library
 })
-
-# reg_py <- import_from_path("Resampling_scheme",
-#     path = "data"
-# )
 
 
 generate_cov_simple <- function(p,
@@ -40,28 +36,7 @@ generate_cov_blocks <- function(p,
   # (inter-correlation)
   if (length(rho) != n_blocks)
     rho <- rep(rho, n_blocks)
-  # if the tho_group parameter is not a matrix for the blocks
-  # (intra-correlation)
-  # if (!is.matrix(rho_group)) {
-  # }
-  # rho_group <- matrix(0, n_blocks - 1, n_blocks - 1)
 
-  if (type == "group") {
-    type_block = "fixed"
-    # if the tho_group parameter is not a matrix for the blocks
-    # (intra-correlation)
-    if (!is.matrix(rho_group)) {
-      if (is.list(rho_group)) {
-        # To implement
-      }
-      else {
-        tmp_vec = rep(rho_group, (n_blocks) * (n_blocks))
-        rho_group = matrix(tmp_vec, ncol=(n_blocks), nrow=(n_blocks))
-      }
-  }
-  }
-  else
-    type_block = type
   blocks_ind <- list()
   # Each block is associated with the simple covariance matrix
   for (block in 1:n_blocks) {
@@ -75,7 +50,7 @@ generate_cov_blocks <- function(p,
 
   for (block in 1:length(blocks_ind)) {
     sigma[blocks_ind[[block]], blocks_ind[[block]]] <-
-      generate_cov_simple(length(indx_interv), rho[block], type = type_block)
+      generate_cov_simple(length(indx_interv), rho[block], type = type)
     if (type == "group") {
       for (block_inter in 1:dim(rho_group)[2]) {
         if (block_inter != block)
@@ -230,43 +205,8 @@ generate_data <- function(seed = 2021L,
       y <- x_1[, 1] + 2 * log(1 + 2 * x_1[, 21]^2 + (x_1[, 41] + 1)^2) +
         x_1[, 61] * x_1[, 81] + rnorm(dim(x_1)[1])
     }
-
-    if (prob_sim_data == "regression_group_sim_1") {
-      x_1 <- data.frame(x)
-      beta_grp <- effectset[sample(length(effectset),
-      size = 5,
-      replace = TRUE
-      )]
-      list_cols <- c(1, 6, 11, 16, 21)
-      data_c <- x_1[, list_cols]
-      prod_signal <- as.matrix(data_c) %*% beta_grp
-
-      sigma_noise <- norm(prod_signal, type = "2") / (snr * sqrt(dim(x_1)[1]))
-      y <- prod_signal + sigma_noise * rnorm(dim(x_1)[1])
-    }
   }
 
   colnames(x_1) <- paste0("x", 1:dim(x_1)[2])
   return(data.frame(y, x_1))
-}
-
-
-generate_grps <- function(p, n_grps) {
-  list_grps <- list()
-  items_per_grp <- p / n_grps
-  for (i in c(1:p)) {
-      if ((i-1) == 0) {
-          curr_list <- paste0("x", i)
-      }
-      else {
-          if ((i-1) %% items_per_grp == 0) {
-          list_grps[[length(list_grps)+1]] <- curr_list
-          curr_list <- paste0("x", i)
-      }
-          else
-              curr_list <- c(curr_list, paste0("x", i))
-      }
-  }
-  list_grps[[length(list_grps)+1]] <- curr_list
-  list_grps
 }
