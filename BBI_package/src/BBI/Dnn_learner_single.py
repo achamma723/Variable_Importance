@@ -8,8 +8,15 @@ from sklearn.metrics import log_loss, mean_squared_error
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.validation import check_is_fitted
 
-from .utils import (create_X_y, dnn_net, joblib_ensemble_dnnet, ordinal_encode,
-                    relu, sigmoid, softmax)
+from .utils import (
+    create_X_y,
+    dnn_net,
+    joblib_ensemble_dnnet,
+    ordinal_encode,
+    relu,
+    sigmoid,
+    softmax,
+)
 
 
 class DNN_learner_single(BaseEstimator):
@@ -119,7 +126,11 @@ class DNN_learner_single(BaseEstimator):
         self.inp_dim = inp_dim
         self.random_state = random_state
         self.enc_y = []
-        self.link_func = {"classification": softmax, "ordinal": sigmoid}
+        self.link_func = {
+            "classification": softmax,
+            "ordinal": sigmoid,
+            "binary": sigmoid,
+        }
         self.is_encoded = False
 
     def fit(self, X, y=None):
@@ -143,7 +154,7 @@ class DNN_learner_single(BaseEstimator):
             self.encode = False
 
         if self.encode:
-            y = self.__encode_outcome(y)
+            y = self.encode_outcome(y)
             self.is_encoded = True
             y = np.squeeze(y, axis=0)
 
@@ -155,6 +166,9 @@ class DNN_learner_single(BaseEstimator):
                 "l2_weight": [0, 1e-2, 1e-4],
             }
 
+        # Switch to the special binary case
+        if (self.prob_type == "classification") and (y.shape[-1] < 3):
+            self.prob_type = "binary"
         n, p = X.shape
         self.min_keep = max(min(self.min_keep, self.n_ensemble), 1)
         rng = np.random.RandomState(self.random_state)
@@ -238,7 +252,7 @@ class DNN_learner_single(BaseEstimator):
         self.is_fitted = True
         return self
 
-    def __encode_outcome(self, y, train=True):
+    def encode_outcome(self, y, train=True):
         list_y = []
         if len(y.shape) != 2:
             y = y.reshape(-1, 1)
@@ -248,9 +262,10 @@ class DNN_learner_single(BaseEstimator):
         for col in range(y.shape[1]):
             if train:
                 # Encoding the target with the classification case
-                if self.prob_type == "classification":
+                if self.prob_type in ("classification", "binary"):
                     self.enc_y.append(OneHotEncoder(handle_unknown="ignore"))
-                    list_y.append(self.enc_y[col].fit_transform(y[:, [col]]).toarray())
+                    curr_y = self.enc_y[col].fit_transform(y[:, [col]]).toarray()
+                    list_y.append(curr_y)
 
                 # Encoding the target with the ordinal case
                 if self.prob_type == "ordinal":
@@ -258,8 +273,9 @@ class DNN_learner_single(BaseEstimator):
 
             else:
                 # Encoding the target with the classification case
-                if self.prob_type == "classification":
-                    list_y.append(self.enc_y[col].transform(y[:, [col]]).toarray())
+                if self.prob_type in ("classification", "binary"):
+                    curr_y = self.enc_y[col].transform(y[:, [col]]).toarray()
+                    list_y.append(curr_y)
 
                 ## ToDo Add the ordinal case
         return np.array(list_y)
@@ -276,8 +292,8 @@ class DNN_learner_single(BaseEstimator):
         parallel = Parallel(
             n_jobs=min(self.n_jobs, self.n_ensemble), verbose=self.verbose
         )
-        y_train = self.__encode_outcome(y_train)
-        y_valid = self.__encode_outcome(y_valid, train=False)
+        y_train = self.encode_outcome(y_train)
+        y_valid = self.encode_outcome(y_valid, train=False)
         return [
             list(
                 zip(
@@ -407,7 +423,9 @@ class DNN_learner_single(BaseEstimator):
             res_pred += self.link_func[self.prob_type](pred)
             total_n_elements += 1
         res_pred = res_pred.copy() / total_n_elements
-
+        if self.prob_type == "binary":
+            res_pred = np.array([[1-res_pred[i][0], res_pred[i][0]] for i in range(res_pred.shape[0])])
+        
         return res_pred
 
     def __scale_test(self, X):

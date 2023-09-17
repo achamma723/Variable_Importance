@@ -117,7 +117,11 @@ class DNN_learner(BaseEstimator):
         self.random_state = random_state
         self.pred = [None] * n_ensemble
         self.enc_y = []
-        self.link_func = {"classification": softmax, "ordinal": sigmoid}
+        self.link_func = {
+            "classification": softmax,
+            "ordinal": sigmoid,
+            "binary": sigmoid,
+        }
         self.is_encoded = False
         self.dim_repeat = 1
 
@@ -282,3 +286,8 @@ class DNN_learner(BaseEstimator):
             X = np.array([X for i in range(self.dim_repeat)])
 
         return X
+
+    def encode_outcome(self, y, train=True):
+        for y_col in range(y.shape[-1]):
+            y_enc = self.list_estimators[y_col].encode_outcome(y, train=train)
+        return y_enc

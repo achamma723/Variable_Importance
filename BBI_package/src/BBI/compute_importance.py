@@ -7,8 +7,10 @@ from sklearn.metrics import mean_absolute_error, r2_score, roc_auc_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
 
-from .RandomForestModified import (RandomForestClassifierModified,
-                                   RandomForestRegressorModified)
+from .RandomForestModified import (
+    RandomForestClassifierModified,
+    RandomForestRegressorModified,
+)
 from .utils import convert_predict_proba, ordinal_encode, sample_predictions
 
 warnings.filterwarnings("ignore")
@@ -208,6 +210,7 @@ def joblib_compute_conditional(
                         importance_models["regression"],
                         X_test_minus_idx[cur_output_ind, ...],
                         output["regression"][cur_output_ind, ...],
+                        param_grid={"max_depth": [2, 5, 10]}
                     )
                     importance_models["regression"].fit(
                         X_test_minus_idx[cur_output_ind, ...],
@@ -245,6 +248,7 @@ def joblib_compute_conditional(
                     importance_models["classification"],
                     X_test_minus_idx[cur_output_ind, ...],
                     output["classification"],
+                    param_grid={"max_depth": [2, 5, 10]}
                 )
                 importance_models["classification"].fit(
                     X_test_minus_idx[cur_output_ind, ...],
@@ -276,6 +280,7 @@ def joblib_compute_conditional(
                         importance_models["ordinal"],
                         X_test_minus_idx[cur_output_ind, ...],
                         cur_ordinal,
+                        param_grid={"max_depth": [2, 5, 10]}
                     )
                     importance_models["ordinal"].fit(
                         X_test_minus_idx[cur_output_ind, ...], cur_ordinal
@@ -301,6 +306,7 @@ def joblib_compute_conditional(
                         importance_models["regression"],
                         X_test_minus_idx[cur_output_ind, ...],
                         output["regression"][cur_output_ind, ...],
+                        param_grid={"min_samples_leaf": [10, 15, 20]}
                     )
 
                     importance_models["regression"].fit(
@@ -323,6 +329,7 @@ def joblib_compute_conditional(
                     importance_models["classification"],
                     X_test_minus_idx[cur_output_ind, ...],
                     output["classification"],
+                    param_grid={"min_samples_leaf": [10, 15, 20]}
                 )
                 importance_models["classification"].fit(
                     X_test_minus_idx[cur_output_ind, ...],
@@ -346,6 +353,7 @@ def joblib_compute_conditional(
                         importance_models["ordinal"],
                         X_test_minus_idx[cur_output_ind, ...],
                         cur_ordinal,
+                        param_grid={"min_samples_leaf": [10, 15, 20]}
                     )
 
                     importance_models["ordinal"].fit(
@@ -358,12 +366,7 @@ def joblib_compute_conditional(
                         np.array(X_nominal[grp_ord])[:, [cur_ordinal_ind]],
                     )
 
-    if prob_type == "classification":
-        y_test = (
-            OneHotEncoder(handle_unknown="ignore")
-            .fit_transform(y_test.reshape(-1, 1))
-            .toarray()
-        )
+    if prob_type in ("classification", "binary"):
         score = roc_auc_score(y_test, org_pred)
     else:
         score = (
@@ -662,11 +665,6 @@ def joblib_compute_permutation(
 
         res = (y_test - pred_i) ** 2 - (y_test - org_pred) ** 2
     else:
-        y_test = (
-            OneHotEncoder(handle_unknown="ignore")
-            .fit_transform(y_test.reshape(-1, 1))
-            .toarray()
-        )
         score = roc_auc_score(y_test, org_pred)
         if type_predictor == "DNN":
             pred_i = estimator.predict_proba(current_X_test_list, scale=False)
@@ -683,8 +681,8 @@ def joblib_compute_permutation(
     return res, score
 
 
-def hypertune_predictor(estimator, X, y):
-    param_grid = {"max_depth": [2, 5, 10]}
+def hypertune_predictor(estimator, X, y, param_grid):
+    # param_grid = {"max_depth": [2, 5, 10]}
     grid_search = GridSearchCV(estimator, param_grid=param_grid, cv=2)
     grid_search.fit(X, y)
     return grid_search.best_estimator_

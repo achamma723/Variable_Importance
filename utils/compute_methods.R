@@ -390,12 +390,16 @@ compute_permfit <- function(sim_data,
   )
 
   results <- bbi_model$compute_importance()
+    if(prob_type == "regression")
+        score = as.character(results$score_R2)
+    else
+        score = as.character(results$score_AUC)
 
   return(data.frame(
         method = "Permfit-DNN",
         importance = as.matrix(results$importance)[, 1],
         p_value = as.matrix(results$pval)[, 1],
-        score = as.character(results$score_R2)
+        score = score
   ))
 }
 
@@ -425,12 +429,16 @@ compute_cpi <- function(sim_data,
   )
 
   results <- bbi_model$compute_importance()
+    if(prob_type == "regression")
+        score = as.character(results$score_R2)
+    else
+        score = as.character(results$score_AUC)
 
   return(data.frame(
         method = "CPI-DNN",
         importance = as.matrix(results$importance)[, 1],
         p_value = as.matrix(results$pval)[, 1],
-        score = as.character(results$score_R2)
+        score = score
   ))
 }
 
@@ -461,12 +469,16 @@ compute_cpi_rf <- function(sim_data,
   )
 
   results <- bbi_model$compute_importance()
+    if(prob_type == "regression")
+        score = as.character(results$score_R2)
+    else
+        score = as.character(results$score_AUC)
 
   return(data.frame(
         method = "CPI-RF",
         importance = as.matrix(results$importance)[, 1],
         p_value = as.matrix(results$pval)[, 1],
-        score = as.character(results$score_R2)
+        score = score
   ))
 }
 

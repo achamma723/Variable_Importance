@@ -62,13 +62,13 @@ param_grid <- expand.grid(
   # The file to regenerate samples with same covariance, if given
   sigma = "",
   # The number of samples
-  n_samples = ifelse(!DEBUG, 100L, 100L),
+  n_samples = ifelse(!DEBUG, 1000L, 100L),
   # n_samples = `if`(!DEBUG, seq(100, 100, by = 100), 10),
 
   # The number of covariates
-  n_features = ifelse(!DEBUG, 5L, 5L),
+  n_features = ifelse(!DEBUG, 50L, 5L),
   # The number of relevant covariates
-  n_signal = ifelse(!DEBUG, 2L, 2L),
+  n_signal = ifelse(!DEBUG, 20L, 2L),
   # The mean for the simulation
   mean = c(0),
   # The correlation coefficient
@@ -79,7 +79,7 @@ param_grid <- expand.grid(
     0.8
   ),
   # Number of blocks
-  n_blocks = ifelse(!DEBUG, 1L, 1L),
+  n_blocks = ifelse(!DEBUG, 10L, 1L),
   # Type of simulation
   # It can be ["blocks_toeplitz", "blocks_fixed",
   # "simple_toeplitz", "simple_fixed"]
@@ -88,11 +88,11 @@ param_grid <- expand.grid(
   snr = c(4),
   # The task (computation of the response vector)
   prob_sim_data = c(
-    # "classification"
-    # "regression"
+    "classification",
+    "regression",
     "regression_combine"
-    # "regression_product",
-    # "regression_relu"
+    "regression_product",
+    "regression_relu"
     # "regression_perm"
   ),
   # The running methods implemented

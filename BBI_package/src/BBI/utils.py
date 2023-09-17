@@ -8,8 +8,6 @@ from sklearn.metrics import log_loss, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from torchmetrics import Accuracy
 
-accuracy = Accuracy(task="binary")
-
 
 def create_X_y(
     X,
@@ -282,7 +280,7 @@ def joblib_ensemble_dnnet(
 
     pred = pred.dot(current_model[0][n_layer]) + current_model[1][n_layer]
 
-    if prob_type != "classification":
+    if prob_type not in ("classification", "binary"):
         if prob_type != "ordinal":
             pred_v = pred * scaler_y.scale_ + scaler_y.mean_
         else:
@@ -304,6 +302,8 @@ def init_weights(layer):
 
 
 def Dataset_Loader(X, y, shuffle=False, batch_size=50):
+    if y.shape[-1] == 2:
+        y = y[:, [1]]
     dataset = torch.utils.data.TensorDataset(
         torch.from_numpy(X).float(), torch.from_numpy(y).float()
     )
@@ -317,8 +317,12 @@ def Dataset_Loader(X, y, shuffle=False, batch_size=50):
 class DNN(nn.Module):
     """Feedfoward neural network with 4 hidden layers"""
 
-    def __init__(self, input_dim, group_stacking, list_grps):
+    def __init__(self, input_dim, group_stacking, list_grps, out_dim, prob_type):
         super().__init__()
+        if prob_type == "classification":
+            self.accuracy = Accuracy(task="multiclass", num_classes=out_dim)
+        else:
+            self.accuracy = Accuracy(task="binary")
         self.list_grps = list_grps
         self.group_stacking = group_stacking
         if group_stacking:
@@ -363,7 +367,7 @@ class DNN(nn.Module):
             nn.Linear(30, 20),
             nn.ReLU(),
             # output layer
-            nn.Linear(20, 1),
+            nn.Linear(20, out_dim),
         )
         self.loss = 0
 
@@ -380,8 +384,10 @@ class DNN(nn.Module):
         y_pred = self(X)  # Generate predictions
         if prob_type == "regression":
             loss = F.mse_loss(y_pred, y)
+        elif prob_type == "classification":
+            loss = F.cross_entropy(y_pred, y)  # Calculate loss
         else:
-            loss = F.binary_cross_entropy_with_logits(y_pred, y)  # Calculate loss
+            loss = F.binary_cross_entropy_with_logits(y_pred, y)
         return loss
 
     def validation_step(self, batch, device, prob_type):
@@ -394,8 +400,11 @@ class DNN(nn.Module):
                 "batch_size": len(X),
             }
         else:
-            loss = F.binary_cross_entropy_with_logits(y_pred, y)  # Calculate loss
-            acc = accuracy(y_pred, y.int())
+            if prob_type == "classification":
+                loss = F.cross_entropy(y_pred, y)  # Calculate loss
+            else:
+                loss = F.binary_cross_entropy_with_logits(y_pred, y)
+            acc = self.accuracy(y_pred, y.int())
             return {
                 "val_loss": loss,
                 "val_acc": acc,
@@ -403,7 +412,7 @@ class DNN(nn.Module):
             }
 
     def validation_epoch_end(self, outputs, prob_type):
-        if prob_type == "classification":
+        if prob_type in ("classification", "binary"):
             batch_losses = []
             batch_accs = []
             batch_sizes = []
@@ -497,10 +506,15 @@ def dnn_net(
     # Specify whether to use GPU or CPU
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
-    accuracy.to(device)
+
+    if prob_type in ("regression", "binary"):
+        out_dim = 1
+    else:
+        out_dim = y_train.shape[-1]
+
     # DNN model
     input_dim = inp_dim.copy() if group_stacking else X_train.shape[1]
-    model = DNN(input_dim, group_stacking, list_grps)
+    model = DNN(input_dim, group_stacking, list_grps, out_dim, prob_type)
     model.to(device)
     # Initializing weights/bias
     model.apply(init_weights)

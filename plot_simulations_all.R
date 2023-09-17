@@ -53,7 +53,7 @@ if (run_all_methods){
 
 if (run_plot_auc) {
   plot_method(paste0(filename, ".csv"),
-              paste0("AUC_1", filename_lbl_auc),
+              paste0("AUC_", filename_lbl_auc),
               compute_auc,
               nb_relevant = nb_relevant,
               cor_coef = 0.8,
@@ -66,7 +66,7 @@ if (run_plot_auc) {
 
 if (run_plot_type1error) {
   plot_method(paste0(filename, ".csv"),
-              paste0("type1error_1", filename_lbl),
+              paste0("type1error_", filename_lbl),
               compute_pval,
               nb_relevant = nb_relevant,
               upper_bound = 0.05,
@@ -79,7 +79,7 @@ if (run_plot_type1error) {
 
 if (run_plot_power) {
   plot_method(paste0(filename, ".csv"),
-              paste0("power_1", filename_lbl),
+              paste0("power_", filename_lbl),
               compute_power,
               nb_relevant = nb_relevant,
               upper_bound = 0.05,
@@ -92,7 +92,7 @@ if (run_plot_power) {
 
 if (run_time) {
   plot_time(paste0(filename, ".csv"),
-            paste0("time_bars_1", filename_lbl),
+            paste0("time_bars_", filename_lbl),
             list_func = list_func,
             N_CPU = N_CPU
   )
